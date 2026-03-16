@@ -298,6 +298,106 @@ export default function BolumBaskaniPage() {
     setListeYukleniyor(false);
   };
 
+  // Haftalık Tablo Raporu — ders kodu + adı yan yana, hoca adı yok, 1.HAFTA TUTAR başlıkları, hafta bazlı alt toplam
+  const handleHaftalikTabloRapor = async () => {
+    setListeYukleniyor(true);
+    const { data: tumSiparisler } = await supabase.from("siparisler").select("*");
+
+    type DersSatir = { dersKod: string; dersAd: string; haftaTutarlar: number[]; toplam: number };
+    const satirlar: DersSatir[] = [];
+
+    for (const ogretmen of ogretmenler) {
+      const atananDersIds: string[] = ogretmen.dersler || [];
+      if (atananDersIds.length === 0) continue;
+      const atananDersList = atananDersIds.map((dId) => dersler.find((d) => d.id === dId)).filter(Boolean) as Ders[];
+
+      for (const ders of atananDersList) {
+        const haftaTutarlar: number[] = HAFTALAR.map((hafta) => {
+          const sip = (tumSiparisler || []).find((s: any) => s.ogretmen_id === ogretmen.id && s.ders_id === ders.id && s.hafta === hafta);
+          if (!sip) return 0;
+          return (sip.urunler || []).reduce((acc: number, u: any) => acc + (u.toplam || 0), 0);
+        });
+        const toplam = haftaTutarlar.reduce((a, b) => a + b, 0);
+        satirlar.push({ dersKod: ders.kod, dersAd: ders.ad, haftaTutarlar, toplam });
+      }
+    }
+
+    // Her hafta için sütun toplamı
+    const haftaToplamlari: number[] = HAFTALAR.map((_, hi) =>
+      satirlar.reduce((acc, s) => acc + s.haftaTutarlar[hi], 0)
+    );
+    const genelToplam = satirlar.reduce((acc, s) => acc + s.toplam, 0);
+    const tarih = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+
+    const satirHtml = satirlar.map((s, idx) => {
+      const hucreHtml = s.haftaTutarlar.map((t) =>
+        `<td class="tutar-hucre">${t > 0 ? t.toLocaleString("tr-TR", { minimumFractionDigits: 3 }) : ""}</td>`
+      ).join("");
+      const bg = idx % 2 === 1 ? "background:#fafafa;" : "";
+      return `
+        <tr style="${bg}">
+          <td class="ders-hucre"><span class="ders-kod">${s.dersKod}</span> <span class="ders-ad">${s.dersAd}</span></td>
+          ${hucreHtml}
+          <td class="toplam-hucre">${s.toplam > 0 ? s.toplam.toLocaleString("tr-TR", { minimumFractionDigits: 3 }) + " ₺" : "—"}</td>
+        </tr>`;
+    }).join("");
+
+    // Genel toplam satırı — her hafta sütununun toplamını göster
+    const haftaTotHtml = haftaToplamlari.map((t) =>
+      `<td class="tutar-hucre" style="font-weight:bold;color:#8B0000;">${t > 0 ? t.toLocaleString("tr-TR", { minimumFractionDigits: 3 }) : ""}</td>`
+    ).join("");
+    const genelTotRow = `
+      <tr class="toplam-satir">
+        <td class="ders-hucre" style="font-weight:bold;color:#8B0000;font-size:9px;">GENEL TOPLAM</td>
+        ${haftaTotHtml}
+        <td class="toplam-hucre" style="font-size:10px;">${genelToplam.toLocaleString("tr-TR", { minimumFractionDigits: 3 })} ₺</td>
+      </tr>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      @page { size: A4 landscape; margin: 12mm 8mm; }
+      body { font-family: Arial, sans-serif; font-size: 9px; margin: 0; color: #222; }
+      .baslik { text-align: center; font-size: 13px; font-weight: bold; color: #8B0000; border: 2px solid #8B0000; padding: 8px; margin-bottom: 4px; letter-spacing: 0.5px; }
+      .alt-baslik { text-align: center; font-size: 9px; color: #888; margin-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th { background: #8B0000; color: white; padding: 5px 3px; font-size: 8px; text-align: center; border: 1px solid #6b0000; line-height: 1.4; }
+      th.ders-th { text-align: left; padding-left: 8px; width: 20%; }
+      td { border: 1px solid #ddd; padding: 5px 3px; vertical-align: middle; }
+      .ders-hucre { width: 20%; padding-left: 6px; }
+      .ders-kod { font-weight: bold; font-size: 8.5px; color: #8B0000; }
+      .ders-ad { font-size: 8.5px; color: #1a1a1a; }
+      .tutar-hucre { width: 6.5%; text-align: right; font-size: 8px; color: #444; white-space: nowrap; padding-right: 4px; }
+      .toplam-hucre { width: 8%; text-align: right; font-weight: bold; color: #8B0000; font-size: 8.5px; background: #fff8f8 !important; white-space: nowrap; padding-right: 4px; border-left: 2px solid #8B0000; }
+      .toplam-satir td { background: #fff3f3 !important; border-top: 2px solid #8B0000; }
+      .tarih { font-size: 8px; color: #aaa; text-align: right; margin-top: 8px; }
+    </style></head><body>
+      <div class="baslik">MALZEME TALEP LİSTESİ — HAFTALIK TUTAR TABLOSU</div>
+      <div class="alt-baslik">2025–2026 Bahar Dönemi · Her Hafta Tutar Dökümü</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="ders-th">DERS ADI</th>
+            ${HAFTALAR.map((_, i) => `<th>${i + 1}.HAFTA<br>TUTAR</th>`).join("")}
+            <th>TOPLAM</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${satirHtml}
+          ${genelTotRow}
+        </tbody>
+      </table>
+      <div class="tarih">Oluşturulma Tarihi: ${tarih}</div>
+    </body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) { bildir("hata", "Popup engelleyici açık olabilir."); setListeYukleniyor(false); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+    setListeYukleniyor(false);
+  };
+
   // Genel Rapor PDF — tüm öğretmenler, her birinin dersleri ve 10 hafta toplam tutarı + genel toplam
   const handleGenelRaporPdf = async () => {
     setListeYukleniyor(true);
@@ -616,13 +716,22 @@ export default function BolumBaskaniPage() {
                   <h2 className="font-semibold text-gray-800">Öğretmen Bazlı Liste İndir</h2>
                   <p className="text-xs text-gray-400 mt-1">Her ders için ayrı ayrı Excel (10 hafta + özet) veya PDF (her hafta ayrı sayfa) indir</p>
                 </div>
-                <button
-                  onClick={handleGenelRaporPdf}
-                  disabled={listeYukleniyor || ogretmenler.length === 0}
-                  className="flex items-center gap-2 text-sm bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl transition shrink-0"
-                >
-                  <span>🧾</span> Genel Rapor PDF
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleHaftalikTabloRapor}
+                    disabled={listeYukleniyor || ogretmenler.length === 0}
+                    className="flex items-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl transition shrink-0"
+                  >
+                    <span>📋</span> Haftalık Tablo PDF
+                  </button>
+                  <button
+                    onClick={handleGenelRaporPdf}
+                    disabled={listeYukleniyor || ogretmenler.length === 0}
+                    className="flex items-center gap-2 text-sm bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl transition shrink-0"
+                  >
+                    <span>🧾</span> Genel Rapor PDF
+                  </button>
+                </div>
               </div>
               {ogretmenler.length === 0 ? (
                 <div className="py-20 text-center text-gray-400 text-sm">Henüz öğretmen bulunmuyor.</div>
