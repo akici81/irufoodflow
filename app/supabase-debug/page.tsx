@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
 type TableData = {
@@ -8,6 +8,13 @@ type TableData = {
   data: any[];
   error: string | null;
   loading: boolean;
+};
+
+type ImportStatus = {
+  table: string;
+  status: "pending" | "importing" | "success" | "error";
+  count: number;
+  message?: string;
 };
 
 // Projede kullanılan TÜM tablolar (11 tablo)
@@ -23,6 +30,21 @@ const TABLES = [
   "demirbaslar",         // Demirbaş/envanter
   "envanter_sayimlar",   // Envanter sayım ana kayıtları
   "envanter_sayim_detay" // Envanter sayım detayları
+];
+
+// Import sırası (foreign key bağımlılıklarına göre)
+const IMPORT_ORDER = [
+  "kullanicilar",
+  "dersler", 
+  "urunler",
+  "receteler",
+  "recete_malzemeleri",
+  "siparisler",
+  "ders_programi",
+  "etkinlik_takvimi",
+  "demirbaslar",
+  "envanter_sayimlar",
+  "envanter_sayim_detay"
 ];
 
 // Tablo açıklamaları
@@ -92,6 +114,104 @@ export default function SupabaseDebugPage() {
   const [customQuery, setCustomQuery] = useState<string>("");
   const [customResult, setCustomResult] = useState<any>(null);
   const [customError, setCustomError] = useState<string>("");
+  
+  // Import state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState<Record<string, any[]> | null>(null);
+  const [importStatuses, setImportStatuses] = useState<ImportStatus[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // JSON dosyası seçildiğinde
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        setImportData(json);
+        
+        // Her tablo için başlangıç durumu
+        const statuses: ImportStatus[] = IMPORT_ORDER
+          .filter(table => json[table] && json[table].length > 0)
+          .map(table => ({
+            table,
+            status: "pending",
+            count: json[table]?.length || 0
+          }));
+        setImportStatuses(statuses);
+        setShowImportModal(true);
+      } catch (err) {
+        alert("JSON dosyası okunamadı! Geçerli bir yedek dosyası seçin.");
+      }
+    };
+    reader.readAsText(file);
+    
+    // Input'u resetle (aynı dosya tekrar seçilebilsin)
+    e.target.value = "";
+  };
+
+  // Tüm verileri import et
+  const handleImport = async () => {
+    if (!importData) return;
+    
+    setIsImporting(true);
+    
+    for (const tableName of IMPORT_ORDER) {
+      const tableData = importData[tableName];
+      if (!tableData || tableData.length === 0) continue;
+      
+      // Durumu "importing" yap
+      setImportStatuses(prev => prev.map(s => 
+        s.table === tableName ? { ...s, status: "importing" } : s
+      ));
+      
+      try {
+        // Önce mevcut verileri sil
+        const { error: deleteError } = await supabase
+          .from(tableName)
+          .delete()
+          .neq("id", tableName === "kullanicilar" ? 0 : "");
+        
+        if (deleteError) {
+          throw new Error(`Silme hatası: ${deleteError.message}`);
+        }
+        
+        // Verileri ekle (100'lük batch'ler halinde)
+        const batchSize = 100;
+        for (let i = 0; i < tableData.length; i += batchSize) {
+          const batch = tableData.slice(i, i + batchSize);
+          const { error: insertError } = await supabase
+            .from(tableName)
+            .insert(batch);
+          
+          if (insertError) {
+            throw new Error(`Ekleme hatası: ${insertError.message}`);
+          }
+        }
+        
+        // Başarılı
+        setImportStatuses(prev => prev.map(s => 
+          s.table === tableName ? { ...s, status: "success", message: `${tableData.length} kayıt eklendi` } : s
+        ));
+        
+      } catch (err: any) {
+        setImportStatuses(prev => prev.map(s => 
+          s.table === tableName ? { ...s, status: "error", message: err.message } : s
+        ));
+      }
+      
+      // Bir sonraki tabloya geçmeden önce kısa bekle
+      await new Promise(r => setTimeout(r, 300));
+    }
+    
+    setIsImporting(false);
+    
+    // Tabloları yeniden yükle
+    loadAllTables();
+  };
 
   // Supabase bağlantısını test et
   const checkConnection = async () => {
@@ -295,6 +415,28 @@ export default function SupabaseDebugPage() {
         >
           📥 Tüm Verileri İndir (JSON)
         </button>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            padding: "12px 24px",
+            backgroundColor: "#f59e0b",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 600,
+            fontSize: 15
+          }}
+        >
+          📤 JSON'dan İçeri Aktar
+        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          accept=".json"
+          style={{ display: "none" }}
+        />
         <button
           onClick={generateSchema}
           style={{
@@ -515,6 +657,135 @@ export default function SupabaseDebugPage() {
           <p>NEXT_PUBLIC_SUPABASE_ANON_KEY: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "***" + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(-8) : "(tanımlı değil)"}</p>
         </div>
       </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: "white",
+            borderRadius: 16,
+            padding: 24,
+            width: "90%",
+            maxWidth: 600,
+            maxHeight: "80vh",
+            overflow: "auto"
+          }}>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: "#1f2937" }}>
+              📤 Verileri İçeri Aktar
+            </h2>
+            <p style={{ color: "#6b7280", marginBottom: 20 }}>
+              JSON yedek dosyasından verileri Supabase'e aktarın.
+              <br />
+              <strong style={{ color: "#dc2626" }}>⚠️ Dikkat:</strong> Mevcut veriler silinecek!
+            </p>
+
+            {/* Tablo listesi */}
+            <div style={{ marginBottom: 20 }}>
+              {importStatuses.map((s) => {
+                const info = TABLE_INFO[s.table] || { icon: "📄", color: "#6b7280" };
+                return (
+                  <div
+                    key={s.table}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 12px",
+                      marginBottom: 8,
+                      borderRadius: 8,
+                      backgroundColor: s.status === "success" ? "#d1fae5" :
+                                      s.status === "error" ? "#fee2e2" :
+                                      s.status === "importing" ? "#dbeafe" : "#f9fafb",
+                      border: `1px solid ${s.status === "success" ? "#10b981" :
+                                          s.status === "error" ? "#ef4444" :
+                                          s.status === "importing" ? "#3b82f6" : "#e5e7eb"}`
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{info.icon}</span>
+                    <span style={{ flex: 1, fontWeight: 500 }}>{s.table}</span>
+                    <span style={{ 
+                      color: s.status === "importing" ? "#1d4ed8" : "#6b7280",
+                      fontSize: 14 
+                    }}>
+                      {s.count} kayıt
+                    </span>
+                    <span style={{ fontSize: 18 }}>
+                      {s.status === "pending" && "⏳"}
+                      {s.status === "importing" && "🔄"}
+                      {s.status === "success" && "✅"}
+                      {s.status === "error" && "❌"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Toplam */}
+            <div style={{
+              padding: 12,
+              backgroundColor: "#f0f9ff",
+              borderRadius: 8,
+              marginBottom: 20,
+              textAlign: "center"
+            }}>
+              <strong>Toplam: {importStatuses.reduce((acc, s) => acc + s.count, 0)} kayıt</strong>
+            </div>
+
+            {/* Butonlar */}
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportData(null);
+                  setImportStatuses([]);
+                }}
+                disabled={isImporting}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "#e5e7eb",
+                  color: "#374151",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: isImporting ? "not-allowed" : "pointer",
+                  fontWeight: 500,
+                  opacity: isImporting ? 0.5 : 1
+                }}
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={isImporting || importStatuses.every(s => s.status === "success")}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: importStatuses.every(s => s.status === "success") ? "#10b981" : "#ef4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: isImporting ? "not-allowed" : "pointer",
+                  fontWeight: 600,
+                  opacity: isImporting ? 0.7 : 1
+                }}
+              >
+                {isImporting ? "İçeri Aktarılıyor..." : 
+                 importStatuses.every(s => s.status === "success") ? "✅ Tamamlandı!" : 
+                 "🚀 İçeri Aktar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
