@@ -115,6 +115,13 @@ export default function MarketPage() {
   const handleTik = async (key: string) => {
     if (!aktifHafta) return;
     const alindi = alinanlar.has(key);
+    // Önce state'i güncelle (anlık tepki için)
+    setAlinanlar(prev => {
+      const next = new Set(prev);
+      if (alindi) next.delete(key); else next.add(key);
+      return next;
+    });
+    // Supabase'e yaz
     if (alindi) {
       await supabase.from("market_alinanlar")
         .delete()
