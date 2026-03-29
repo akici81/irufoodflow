@@ -210,9 +210,8 @@ export default function SatinAlmaPage() {
   const handleStokDus = async (satir: OzetSatir, idx: number) => {
     if (!satir.urunId) { bildir("hata", `"${satir.urunAdi}" urun veritabaninda bulunamadi.`); return; }
     if (satir.depodaMiktar <= 0) { bildir("hata", "Depoda bu urunun stoku zaten sifir."); return; }
-    const { error } = await supabase.from("urunler").update({ stok: 0 }).eq("id", satir.urunId);
-    if (error) { bildir("hata", "Stok guncellenemedi: " + error.message); return; }
-    bildir("basari", `"${satir.urunAdi}": depodaki ${parseFloat(satir.depodaMiktar.toFixed(3))} ${satir.olcu} stoktan dusuldu.`);
+    // Veritabanına DOKUNMUYORUZ — sadece bu haftanın listesinden düşüyoruz
+    bildir("basari", `"${satir.urunAdi}" listeden düşüldü. Stok değişmedi.`);
     setStokMap((prev) => {
   const key = `${satir.urunAdi}__${satir.marka || ""}`;
   return { ...prev, [key]: { id: satir.urunId!, stok: 0, kategori: satir.kategori, paketMiktari: satir.paketMiktari, paketBirimi: satir.paketBirimi } };
