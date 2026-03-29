@@ -24,7 +24,6 @@ export default function MarketPage() {
 
   const fetchGorev = async () => {
     setVeriYukleniyor(true);
-    // Öğrenci kullanıcısının aktif haftasını çek
     const id = localStorage.getItem("aktifKullaniciId");
     const { data: kullanici } = await supabase
       .from("kullanicilar")
@@ -37,7 +36,7 @@ export default function MarketPage() {
 
     if (!hafta) { setVeriYukleniyor(false); return; }
 
-    // O haftanın siparişlerini çek
+    // Siparişleri çek
     const { data: siparisler } = await supabase
       .from("siparisler")
       .select("*")
@@ -49,9 +48,10 @@ export default function MarketPage() {
 
     const stokMap: Record<string, { stok: number; kategori: string }> = {};
     (urunler || []).forEach((u: any) => {
-      stokMap[`${u.urun_adi}__${u.marka || ""}`] = { 
-        stok: u.stok ?? 0, 
-        kategori: u.kategori || "Diğer" 
+      // ID ile eşleştir — en güvenilir yöntem
+      stokMap[u.id] = {
+        stok: u.stok ?? 0,
+        kategori: u.kategori || "Diğer"
       };
     });
 
@@ -59,14 +59,13 @@ export default function MarketPage() {
     (siparisler || []).forEach((s: any) => {
       (s.urunler || []).forEach((u: any) => {
         const key = `${u.urunAdi}__${u.marka || ""}__${u.olcu}`;
-        const stokBilgi = stokMap[`${u.urunAdi}__${u.marka || ""}`];
+        const stokBilgi = u.urunId ? stokMap[u.urunId] : null;
         const stok = stokBilgi?.stok ?? 0;
-        const kategori = stokBilgi?.kategori || u.kategori || "Diğer";
+        const kategori = stokBilgi?.kategori || "Diğer";
         if (!ozet[key]) {
           ozet[key] = {
             urunAdi: u.urunAdi, marka: u.marka, olcu: u.olcu,
-            birimFiyat: u.birimFiyat, satinAlinacak: 0,
-            kategori,
+            birimFiyat: u.birimFiyat, satinAlinacak: 0, kategori,
           };
         }
         ozet[key].satinAlinacak += Number(u.miktar);
@@ -79,7 +78,52 @@ export default function MarketPage() {
         .filter(u => u.satinAlinacak > 0)
         .sort((a, b) => a.kategori.localeCompare(b.kategori, "tr") || a.urunAdi.localeCompare(b.urunAdi, "tr"))
     );
+
+    // Mevcut alınanları çek
+    const { data: alinanData } = await supabase
+      .from("market_alinanlar")
+      .select("urun_key")
+      .eq("hafta", hafta);
+
+    setAlinanlar(new Set((alinanData || []).map((r: any) => r.urun_key)));
     setVeriYukleniyor(false);
+
+    // Realtime subscription
+    const channel = supabase
+      .channel(`market_${hafta}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "market_alinanlar",
+        filter: `hafta=eq.${hafta}`,
+      }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          setAlinanlar(prev => new Set(prev).add((payload.new as any).urun_key));
+        } else if (payload.eventType === "DELETE") {
+          setAlinanlar(prev => {
+            const next = new Set(prev);
+            next.delete((payload.old as any).urun_key);
+            return next;
+          });
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  };
+
+  const handleTik = async (key: string) => {
+    if (!aktifHafta) return;
+    const alindi = alinanlar.has(key);
+    if (alindi) {
+      await supabase.from("market_alinanlar")
+        .delete()
+        .eq("hafta", aktifHafta)
+        .eq("urun_key", key);
+    } else {
+      await supabase.from("market_alinanlar")
+        .upsert({ hafta: aktifHafta, urun_key: key });
+    }
   };
 
   if (yukleniyor || !yetkili) return null;
@@ -88,7 +132,6 @@ export default function MarketPage() {
   const alinanSayisi = alinanlar.size;
   const tamamlandi = toplamUrun > 0 && alinanSayisi === toplamUrun;
 
-  // Hafta atanmamış
   if (!veriYukleniyor && !aktifHafta) {
     return (
       <DashboardLayout title="Market Görevi">
@@ -140,11 +183,22 @@ export default function MarketPage() {
         {/* Liste */}
         {!veriYukleniyor && Object.entries(gruplar).map(([kategori, urunler]) => (
           <div key={kategori} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between" style={{ background: "#8B0000" }}>
-              <span className="text-xs font-bold text-white uppercase tracking-wider">{kategori}</span>
-              <span className="text-xs font-semibold text-white/70">
-                {urunler.filter(u => alinanlar.has(`${u.urunAdi}__${u.marka}`)).length}/{urunler.length} alındı
-              </span>
+            <div className="border-b border-gray-100" style={{ background: "#8B0000" }}>
+              <div className="px-4 py-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">{kategori}</span>
+                <span className="text-xs font-semibold text-white/70">
+                  {urunler.filter(u => alinanlar.has(`${u.urunAdi}__${u.marka}`)).length}/{urunler.length} alındı
+                </span>
+              </div>
+              <div className="flex items-center px-4 py-1 border-t border-white/10">
+                <div className="flex-1" />
+                <div className="w-20 text-center">
+                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alınacak</span>
+                </div>
+                <div className="w-24 text-right">
+                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Tutar</span>
+                </div>
+              </div>
             </div>
             <div className="divide-y divide-gray-50">
               {urunler.map((u) => {
@@ -153,33 +207,35 @@ export default function MarketPage() {
                 return (
                   <button
                     key={key}
-                    onClick={() => setAlinanlar(prev => {
-                      const next = new Set(prev);
-                      if (next.has(key)) next.delete(key); else next.add(key);
-                      return next;
-                    })}
+                    onClick={() => handleTik(key)}
                     className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors ${alindi ? "bg-emerald-50" : "hover:bg-gray-50 active:bg-gray-100"}`}
                   >
                     <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${alindi ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`}>
                       {alindi && <span className="text-white text-sm font-bold">✓</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-base leading-tight ${alindi ? "line-through text-gray-400" : "text-gray-800"}`}>
+                      <p className={`font-semibold text-sm leading-tight ${alindi ? "line-through text-gray-400" : "text-gray-800"}`}>
                         {u.urunAdi}
                       </p>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        {u.marka && <span className="mr-2">{u.marka}</span>}
-                        <span className="font-medium text-emerald-700">{u.satinAlinacak} {u.olcu}</span>
+                      {u.marka && (
+                        <p className="text-xs text-gray-400 mt-0.5">{u.marka}</p>
+                      )}
+                    </div>
+                    <div className="w-20 text-center shrink-0">
+                      <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-red-700"}`}>
+                        {u.satinAlinacak} {u.olcu}
                       </p>
                     </div>
-                    {u.birimFiyat > 0 && (
-                      <div className="text-right shrink-0">
-                        <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-gray-700"}`}>
-                          {(u.birimFiyat * u.satinAlinacak).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
-                        </p>
-                        <p className="text-xs text-gray-400">{u.birimFiyat.toLocaleString("tr-TR")} TL/{u.olcu}</p>
-                      </div>
-                    )}
+                    <div className="w-24 text-right shrink-0">
+                      {u.birimFiyat > 0 ? (
+                        <>
+                          <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-gray-700"}`}>
+                            {(u.birimFiyat * u.satinAlinacak).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
+                          </p>
+                          <p className="text-xs text-gray-400">{u.birimFiyat.toLocaleString("tr-TR")} TL/{u.olcu}</p>
+                        </>
+                      ) : <span />}
+                    </div>
                   </button>
                 );
               })}
@@ -189,7 +245,10 @@ export default function MarketPage() {
 
         {/* Sıfırla */}
         {alinanlar.size > 0 && (
-          <button onClick={() => setAlinanlar(new Set())}
+          <button onClick={async () => {
+            if (!aktifHafta) return;
+            await supabase.from("market_alinanlar").delete().eq("hafta", aktifHafta);
+          }}
             className="w-full py-3 text-sm text-gray-400 hover:text-gray-600 border border-gray-200 rounded-2xl bg-white transition">
             Listeyi Sıfırla
           </button>

@@ -6,7 +6,7 @@ import { useAuth } from "../hooks/useAuth";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
-type SiparisUrun = { urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
+type SiparisUrun = { urunId?: string; urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
 type Siparis = { id: string; ogretmenAdi: string; dersAdi: string; hafta: string; urunler: SiparisUrun[]; genelToplam: number; durum: string; tarih: string; tip: string; };
 type OzetSatir = {
   urunAdi: string; marka: string; olcu: string;
@@ -53,6 +53,7 @@ export default function SatinAlmaPage() {
   const [secilenTip, setSecilenTip] = useState("haftalik");
   const [bildirim, setBildirim] = useState<{ tip: "basari" | "hata"; metin: string } | null>(null);
   const [alinanlar, setAlinanlar] = useState<Set<string>>(new Set());
+  const [marketHafta, setMarketHafta] = useState<string>("");
   const [ogrenciHafta, setOgrenciHafta] = useState<string>("");
   const [ogrenciId, setOgrenciId] = useState<number | null>(null);
   const [haftaKaydediliyor, setHaftaKaydediliyor] = useState(false);
@@ -86,14 +87,18 @@ export default function SatinAlmaPage() {
     })));
     const map: Record<string, { id: string; stok: number; kategori: string; paketMiktari: number | null; paketBirimi: string }> = {};
     (urunData || []).forEach((u: Record<string, unknown>) => {
-      const key = `${u.urun_adi}__${u.marka || ""}`;
-      map[key] = { 
+      // Hem ID hem ad__marka ile eşleştir
+      const byId = u.id as string;
+      const byKey = `${u.urun_adi}__${u.marka || ""}`;
+      const val = { 
         id: u.id as string, 
         stok: (u.stok as number) ?? 0, 
         kategori: (u.kategori as string) || "Diger",
         paketMiktari: (u.paket_miktari as number) ?? null,
         paketBirimi: (u.paket_birimi as string) ?? "",
       };
+      map[byId] = val;
+      map[byKey] = val;
     });
     setStokMap(map);
 
@@ -109,13 +114,50 @@ export default function SatinAlmaPage() {
     }
   };
 
+  const fetchMarketAlinanlar = async (hafta: string) => {
+    if (!hafta || hafta === "tumu") { setAlinanlar(new Set()); return; }
+    const { data } = await supabase.from("market_alinanlar").select("urun_key").eq("hafta", hafta);
+    setAlinanlar(new Set((data || []).map((r: any) => r.urun_key)));
+  };
+
+  useEffect(() => {
+    if (aktifSekme !== "market") return;
+    const hafta = marketHafta || secilenHafta;
+    fetchMarketAlinanlar(hafta);
+    if (!hafta || hafta === "tumu") return;
+    const channel = supabase
+      .channel(`satin_market_${hafta}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "market_alinanlar", filter: `hafta=eq.${hafta}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") setAlinanlar(prev => new Set(prev).add((payload.new as any).urun_key));
+          else if (payload.eventType === "DELETE") setAlinanlar(prev => { const next = new Set(prev); next.delete((payload.old as any).urun_key); return next; });
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [aktifSekme, marketHafta, secilenHafta]);
+
+  const handleMarketTik = async (key: string) => {
+    const hafta = marketHafta || secilenHafta;
+    if (!hafta || hafta === "tumu") return;
+    const alindi = alinanlar.has(key);
+    if (alindi) {
+      await supabase.from("market_alinanlar").delete().eq("hafta", hafta).eq("urun_key", key);
+    } else {
+      await supabase.from("market_alinanlar").upsert({ hafta, urun_key: key });
+    }
+  };
+
   const handleHaftaAta = async (hafta: string) => {
     if (!ogrenciId) return;
     setHaftaKaydediliyor(true);
+    // Eski haftanın alınanlarını temizle
+    if (ogrenciHafta && ogrenciHafta !== hafta) {
+      await supabase.from("market_alinanlar").delete().eq("hafta", ogrenciHafta);
+    }
     await supabase.from("kullanicilar").update({ aktif_hafta: hafta || null }).eq("id", ogrenciId);
     setOgrenciHafta(hafta);
     setHaftaKaydediliyor(false);
-    bildir("basari", hafta ? `Öğrenciye "${hafta}" atandı!` : "Öğrenci görevi kaldırıldı.");
+    bildir("basari", hafta ? `Öğrenciye "${hafta}" atandı! Eski liste temizlendi.` : "Öğrenci görevi kaldırıldı.");
   };
 
   const bildir = (tip: "basari" | "hata", metin: string) => {
@@ -137,7 +179,7 @@ export default function SatinAlmaPage() {
     filtrelenmis.forEach((s) => {
       s.urunler.forEach((u) => {
         const key = `${u.urunAdi}__${u.marka || ""}__${u.olcu}`;
-        const stokKey = `${u.urunAdi}__${u.marka || ""}`;
+        const stokKey = u.urunId || `${u.urunAdi}__${u.marka || ""}`;
         const stokBilgi = stokMap[stokKey];
         if (!ozet[key]) {
           ozet[key] = {
@@ -725,7 +767,11 @@ tr:nth-child(even) td{background:#fafafa}
               {alinanlar.size > 0 && (
                 <div className="ml-auto flex items-center gap-3">
                   <span className="text-sm font-bold text-emerald-600">✅ {alinanlar.size} / {satirlar.filter(u => u.satinAlinacak > 0).length} alındı</span>
-                  <button onClick={() => setAlinanlar(new Set())}
+                  <button onClick={async () => {
+                    const hafta = marketHafta || secilenHafta;
+                    if (hafta && hafta !== "tumu") await supabase.from("market_alinanlar").delete().eq("hafta", hafta);
+                    setAlinanlar(new Set());
+                  }}
                     className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5">
                     Sıfırla
                   </button>
@@ -781,14 +827,7 @@ tr:nth-child(even) td{background:#fafafa}
                           return (
                             <button
                               key={key}
-                              onClick={() => {
-                                setAlinanlar(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(key)) next.delete(key);
-                                  else next.add(key);
-                                  return next;
-                                });
-                              }}
+                              onClick={() => handleMarketTik(key)}
                               className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors active:scale-[0.99] ${alindi ? "bg-emerald-50" : "hover:bg-gray-50"}`}
                             >
                               {/* Tik butonu */}
