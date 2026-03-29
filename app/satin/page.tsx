@@ -199,7 +199,8 @@ export default function SatinAlmaPage() {
       });
     });
     Object.values(ozet).forEach((s) => {
-      s.satinAlinacak = Math.max(0, s.listeMiktar - s.depodaMiktar);
+      // Otomatik düşme YOK — kullanıcı "Listeden Çıkart" basarsa düşer
+      s.satinAlinacak = s.listeMiktar;
     });
     setSatirlar(Object.values(ozet).sort((a, b) => {
       const kCmp = (a.kategori || "").localeCompare(b.kategori || "", "tr");
@@ -273,7 +274,7 @@ tr:nth-child(even) td{background:#fafafa}
     Object.entries(gruplar).forEach(([kategori, urunler]) => {
       html += `<div class="kat">${kategori} (${urunler.length} urun)</div><table><thead><tr><th class="col-urun">Urun</th><th class="col-marka">Marka</th><th class="col-miktar">Miktar</th></tr></thead><tbody>`;
       urunler.forEach((u) => {
-        const satin = u.satinAlinacak > 0 ? `<span class="s">${u.satinAlinacak} ${u.olcu}</span>` : `<span class="y">Depoda yeterli</span>`;
+        const satin = u.satinAlinacak > 0 ? `<span class="s">${u.satinAlinacak} ${u.olcu}</span>` : `<span class="y">—</span>`;
         html += `<tr><td class="col-urun">${u.urunAdi}</td><td class="col-marka">${u.marka || "-"}</td><td class="col-miktar">${satin}</td></tr>`;
       });
       html += `</tbody></table>`;
@@ -324,7 +325,7 @@ tr:nth-child(even) td{background:#fafafa}
     Object.entries(gruplar).forEach(([kategori, urunler]) => {
       html += `<div class="kat">${kategori} (${urunler.length} urun)</div><table><thead><tr><th class="col-urun">Urun</th><th class="col-marka">Marka</th><th class="col-miktar">Satin Alinacak</th><th class="col-fiyat">B.Fiyat</th></tr></thead><tbody>`;
       urunler.forEach((u) => {
-        const satin = u.satinAlinacak > 0 ? `<span class="s">${u.satinAlinacak} ${u.olcu}</span>` : `<span class="y">Depoda yeterli</span>`;
+        const satin = u.satinAlinacak > 0 ? `<span class="s">${u.satinAlinacak} ${u.olcu}</span>` : `<span class="y">—</span>`;
         html += `<tr><td class="col-urun">${u.urunAdi}</td><td class="col-marka">${u.marka || "-"}</td><td class="col-miktar">${satin}</td><td class="col-fiyat">${u.birimFiyat > 0 ? u.birimFiyat.toFixed(2) + " TL" : "-"}</td></tr>`;
       });
       html += `</tbody></table>`;
@@ -715,7 +716,7 @@ tr:nth-child(even) td{background:#fafafa}
                             </td>
                             <td className="px-4 py-3.5">
                               <span className={`font-bold text-base ${u.satinAlinacak > 0 ? "text-emerald-700" : "text-gray-400"}`}>
-                                {u.satinAlinacak > 0 ? `${parseFloat(u.satinAlinacak.toFixed(3))} ${u.olcu}` : "Depoda yeterli"}
+                                {u.satinAlinacak > 0 ? `${parseFloat(u.satinAlinacak.toFixed(3))} ${u.olcu}` : "—"}
                               </span>
                             </td>
                             <td className="px-4 py-3.5 text-gray-500">
@@ -724,13 +725,13 @@ tr:nth-child(even) td{background:#fafafa}
                             <td className="px-4 py-3.5">
                               {u.dususYapildi ? (
                                 <span className="text-xs text-emerald-600 font-medium">Dusuldu</span>
-                              ) : u.depodaMiktar > 0 ? (
+                              ) : u.listeMiktar > 0 ? (
                                 <button onClick={() => handleStokDus(u, i)}
                                   className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium px-3 py-1.5 rounded-lg transition whitespace-nowrap">
-                                  Stoktan Dus
+                                  Listeden Çıkart
                                 </button>
                               ) : (
-                                <span className="text-xs text-gray-400">Stok yok</span>
+                                <span className="text-xs text-gray-400">—</span>
                               )}
                             </td>
                           </tr>
