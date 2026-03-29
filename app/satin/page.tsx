@@ -705,8 +705,10 @@ tr:nth-child(even) td{background:#fafafa}
                           </td>
                         </tr>,
                         ...satirGrubu.map(({ satir: u, idx: i }) => (
-                          <tr key={i} className={`hover:bg-gray-50 transition-colors ${u.dususYapildi ? "bg-emerald-50" : ""}`}>
-                            <td className="px-4 py-3.5 font-medium text-gray-800">{u.urunAdi}</td>
+                          <tr key={i} className={`transition-colors ${u.dususYapildi ? "bg-gray-50 opacity-60" : "hover:bg-gray-50"}`}>
+                            <td className="px-4 py-3.5 font-medium text-gray-800">
+                              <span className={u.dususYapildi ? "line-through text-gray-400" : ""}>{u.urunAdi}</span>
+                            </td>
                             <td className="px-4 py-3.5 text-gray-500">{u.marka || "-"}</td>
                             <td className="px-4 py-3.5 text-gray-700 font-medium">{parseFloat(u.listeMiktar.toFixed(3))} {u.olcu}</td>
                             <td className="px-4 py-3.5">
@@ -724,7 +726,7 @@ tr:nth-child(even) td{background:#fafafa}
                             </td>
                             <td className="px-4 py-3.5">
                               {u.dususYapildi ? (
-                                <span className="text-xs text-emerald-600 font-medium">Dusuldu</span>
+                                <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-3 py-1.5 rounded-lg">✓ Çıkartıldı</span>
                               ) : u.listeMiktar > 0 ? (
                                 <button onClick={() => handleStokDus(u, i)}
                                   className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium px-3 py-1.5 rounded-lg transition whitespace-nowrap">
