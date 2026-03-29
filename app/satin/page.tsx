@@ -53,6 +53,7 @@ export default function SatinAlmaPage() {
   const [secilenTip, setSecilenTip] = useState("haftalik");
   const [bildirim, setBildirim] = useState<{ tip: "basari" | "hata"; metin: string } | null>(null);
   const [alinanlar, setAlinanlar] = useState<Set<string>>(new Set());
+  const [dususYapildiSet, setDususYapildiSet] = useState<Set<string>>(new Set());
   const [marketHafta, setMarketHafta] = useState<string>("");
   const [ogrenciHafta, setOgrenciHafta] = useState<string>("");
   const [ogrenciId, setOgrenciId] = useState<number | null>(null);
@@ -111,6 +112,15 @@ export default function SatinAlmaPage() {
     if (ogrenci) {
       setOgrenciId(ogrenci.id);
       setOgrenciHafta(ogrenci.aktif_hafta || "");
+    }
+
+    // Daha önce listeden çıkartılanları yükle (hafta bazlı)
+    // Tüm haftalar için yükle
+    const { data: dususData } = await supabase
+      .from("market_alinanlar")
+      .select("hafta, urun_key");
+    if (dususData) {
+      setDususYapildiSet(new Set(dususData.map((r: any) => `${r.hafta}__${r.urun_key}`)));
     }
   };
 
@@ -188,7 +198,7 @@ export default function SatinAlmaPage() {
             depodaMiktar: stokBilgi?.stok ?? 0,
             satinAlinacak: 0,
             urunId: stokBilgi?.id || null,
-            dususYapildi: false,
+            dususYapildi: dususYapildiSet.has(`${secilenHafta}__${u.urunAdi}__${u.marka || ""}`),
             kategori: stokBilgi?.kategori || "Diger",
             paketMiktari: stokBilgi?.paketMiktari ?? null,
             paketBirimi: stokBilgi?.paketBirimi ?? "",
@@ -206,19 +216,41 @@ export default function SatinAlmaPage() {
       const kCmp = (a.kategori || "").localeCompare(b.kategori || "", "tr");
       return kCmp !== 0 ? kCmp : a.urunAdi.localeCompare(b.urunAdi, "tr");
     }));
-  }, [siparisler, stokMap, secilenHafta, secilenDers]);
+  }, [siparisler, stokMap, secilenHafta, secilenDers, dususYapildiSet]);
 
   const handleStokDus = async (satir: OzetSatir, idx: number) => {
     if (!satir.urunId) { bildir("hata", `"${satir.urunAdi}" urun veritabaninda bulunamadi.`); return; }
     // Veritabanına DOKUNMUYORUZ — sadece bu haftanın listesinden düşüyoruz
-    bildir("basari", `"${satir.urunAdi}" listeden düşüldü. Stok değişmedi.`);
+    // Market listesine de "alındı" olarak işaretle (gözükmesin)
+    const urunKey = `${satir.urunAdi}__${satir.marka || ""}`;
+    const aktifHafta = secilenHafta !== "tumu" ? secilenHafta : null;
+    if (aktifHafta) {
+      await supabase.from("market_alinanlar").upsert({ hafta: aktifHafta, urun_key: urunKey });
+    }
+    bildir("basari", `"${satir.urunAdi}" listeden çıkartıldı.`);
+    if (aktifHafta) {
+      setDususYapildiSet(prev => new Set(prev).add(`${aktifHafta}__${urunKey}`));
+    }
     setStokMap((prev) => {
-  const key = `${satir.urunAdi}__${satir.marka || ""}`;
-  return { ...prev, [key]: { id: satir.urunId!, stok: 0, kategori: satir.kategori, paketMiktari: satir.paketMiktari, paketBirimi: satir.paketBirimi } };
-});
+      const key = urunKey;
+      return { ...prev, [key]: { id: satir.urunId!, stok: 0, kategori: satir.kategori, paketMiktari: satir.paketMiktari, paketBirimi: satir.paketBirimi } };
+    });
     setSatirlar((prev) => prev.map((s, i) =>
       i === idx ? { ...s, dususYapildi: true, depodaMiktar: 0, satinAlinacak: s.listeMiktar } : s
     ));
+  };
+
+  const handleStokGeriAl = async (satir: OzetSatir, idx: number) => {
+    const urunKey = `${satir.urunAdi}__${satir.marka || ""}`;
+    const aktifHafta = secilenHafta !== "tumu" ? secilenHafta : null;
+    if (aktifHafta) {
+      await supabase.from("market_alinanlar").delete().eq("hafta", aktifHafta).eq("urun_key", urunKey);
+      setDususYapildiSet(prev => { const next = new Set(prev); next.delete(`${aktifHafta}__${urunKey}`); return next; });
+    }
+    setSatirlar((prev) => prev.map((s, i) =>
+      i === idx ? { ...s, dususYapildi: false, depodaMiktar: satir.depodaMiktar, satinAlinacak: s.listeMiktar } : s
+    ));
+    bildir("basari", `"${satir.urunAdi}" listeye geri eklendi.`);
   };
 
   const handleDurumGuncelle = async (sipId: string, yeniDurum: string) => {
@@ -725,7 +757,10 @@ tr:nth-child(even) td{background:#fafafa}
                             </td>
                             <td className="px-4 py-3.5">
                               {u.dususYapildi ? (
-                                <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-3 py-1.5 rounded-lg">✓ Çıkartıldı</span>
+                                <button onClick={() => handleStokGeriAl(u, i)}
+                                  className="text-xs bg-emerald-100 hover:bg-red-50 text-emerald-700 hover:text-red-600 font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                  ✓ Çıkartıldı
+                                </button>
                               ) : u.listeMiktar > 0 ? (
                                 <button onClick={() => handleStokDus(u, i)}
                                   className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium px-3 py-1.5 rounded-lg transition whitespace-nowrap">
