@@ -46,7 +46,7 @@ export default function SatinAlmaPage() {
   const [adSoyad, setAdSoyad] = useState("");
   const [aktifSekme, setAktifSekme] = useState<"dashboard" | "liste">("dashboard");
   const [siparisler, setSiparisler] = useState<Siparis[]>([]);
-  const [stokMap, setStokMap] = useState<Record<string, { id: string; stok: number; kategori: string }>>({});
+  const [stokMap, setStokMap] = useState<Record<string, { id: string; stok: number; kategori: string; paketMiktari: number | null; paketBirimi: string }>>({});
   const [satirlar, setSatirlar] = useState<OzetSatir[]>([]);
   const [secilenHafta, setSecilenHafta] = useState("tumu");
   const [secilenDers, setSecilenDers] = useState("tumu");
@@ -148,9 +148,9 @@ export default function SatinAlmaPage() {
     if (error) { bildir("hata", "Stok guncellenemedi: " + error.message); return; }
     bildir("basari", `"${satir.urunAdi}": depodaki ${parseFloat(satir.depodaMiktar.toFixed(3))} ${satir.olcu} stoktan dusuldu.`);
     setStokMap((prev) => {
-      const key = `${satir.urunAdi}__${satir.marka || ""}`;
-      return { ...prev, [key]: { id: satir.urunId!, stok: 0, kategori: satir.kategori } };
-    });
+  const key = `${satir.urunAdi}__${satir.marka || ""}`;
+  return { ...prev, [key]: { id: satir.urunId!, stok: 0, kategori: satir.kategori, paketMiktari: satir.paketMiktari, paketBirimi: satir.paketBirimi } };
+});
     setSatirlar((prev) => prev.map((s, i) =>
       i === idx ? { ...s, dususYapildi: true, depodaMiktar: 0, satinAlinacak: s.listeMiktar } : s
     ));
