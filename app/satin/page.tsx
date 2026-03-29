@@ -44,7 +44,7 @@ const DURUM_STIL: Record<string, { bg: string; text: string; label: string }> = 
 export default function SatinAlmaPage() {
   const { yetkili, yukleniyor } = useAuth("/satin");
   const [adSoyad, setAdSoyad] = useState("");
-  const [aktifSekme, setAktifSekme] = useState<"dashboard" | "liste">("dashboard");
+  const [aktifSekme, setAktifSekme] = useState<"dashboard" | "liste" | "market">("dashboard");
   const [siparisler, setSiparisler] = useState<Siparis[]>([]);
   const [stokMap, setStokMap] = useState<Record<string, { id: string; stok: number; kategori: string; paketMiktari: number | null; paketBirimi: string }>>({});
   const [satirlar, setSatirlar] = useState<OzetSatir[]>([]);
@@ -52,6 +52,10 @@ export default function SatinAlmaPage() {
   const [secilenDers, setSecilenDers] = useState("tumu");
   const [secilenTip, setSecilenTip] = useState("haftalik");
   const [bildirim, setBildirim] = useState<{ tip: "basari" | "hata"; metin: string } | null>(null);
+  const [alinanlar, setAlinanlar] = useState<Set<string>>(new Set());
+  const [ogrenciHafta, setOgrenciHafta] = useState<string>("");
+  const [ogrenciId, setOgrenciId] = useState<number | null>(null);
+  const [haftaKaydediliyor, setHaftaKaydediliyor] = useState(false);
 
   const saat = new Date().getHours();
   const selamlama = saat < 12 ? "Gunaydin" : saat < 18 ? "Iyi gunler" : "Iyi aksamlar";
@@ -92,6 +96,26 @@ export default function SatinAlmaPage() {
       };
     });
     setStokMap(map);
+
+    // Öğrenci hesabının aktif haftasını çek
+    const { data: ogrenci } = await supabase
+      .from("kullanicilar")
+      .select("id, aktif_hafta")
+      .eq("role", "ogrenci")
+      .single();
+    if (ogrenci) {
+      setOgrenciId(ogrenci.id);
+      setOgrenciHafta(ogrenci.aktif_hafta || "");
+    }
+  };
+
+  const handleHaftaAta = async (hafta: string) => {
+    if (!ogrenciId) return;
+    setHaftaKaydediliyor(true);
+    await supabase.from("kullanicilar").update({ aktif_hafta: hafta || null }).eq("id", ogrenciId);
+    setOgrenciHafta(hafta);
+    setHaftaKaydediliyor(false);
+    bildir("basari", hafta ? `Öğrenciye "${hafta}" atandı!` : "Öğrenci görevi kaldırıldı.");
   };
 
   const bildir = (tip: "basari" | "hata", metin: string) => {
@@ -308,10 +332,11 @@ tr:nth-child(even) td{background:#fafafa}
           {[
             { key: "dashboard", label: "Dashboard" },
             { key: "liste", label: "Satin Alma Listesi" },
+            { key: "market", label: "🛒 Market Modu" },
           ].map((s) => (
-            <button key={s.key} onClick={() => setAktifSekme(s.key as "dashboard" | "liste")}
+            <button key={s.key} onClick={() => setAktifSekme(s.key as "dashboard" | "liste" | "market")}
               className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${aktifSekme === s.key ? "text-white shadow-sm" : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"}`}
-              style={aktifSekme === s.key ? { background: "#B71C1C" } : {}}>
+              style={aktifSekme === s.key ? { background: s.key === "market" ? "#059669" : "#B71C1C" } : {}}>
               {s.label}
             </button>
           ))}
@@ -346,6 +371,45 @@ tr:nth-child(even) td{background:#fafafa}
                   <p className="text-xs text-zinc-400">{k.alt}</p>
                 </div>
               ))}
+            </div>
+
+            {/* Öğrenci Görev Atama Kartı */}
+            <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">🛒</div>
+                <div>
+                  <h3 className="font-bold text-gray-800">Öğrenci Market Görevi</h3>
+                  <p className="text-xs text-gray-400">Öğrencilere hangi haftayı alacaklarını atayın</p>
+                </div>
+              </div>
+              <div className="flex gap-3 items-center">
+                <select
+                  value={ogrenciHafta}
+                  onChange={(e) => setOgrenciHafta(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">— Görev yok —</option>
+                  {haftalar.filter(h => h !== "tumu").map(h => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => handleHaftaAta(ogrenciHafta)}
+                  disabled={haftaKaydediliyor}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
+                  style={{ background: "#059669" }}
+                >
+                  {haftaKaydediliyor ? "..." : "Ata"}
+                </button>
+              </div>
+              {ogrenciHafta && (
+                <p className="text-xs text-emerald-600 font-medium mt-2">
+                  ✅ Öğrenciler şu an <strong>{ogrenciHafta}</strong> listesini görüyor
+                </p>
+              )}
+              {!ogrenciHafta && (
+                <p className="text-xs text-gray-400 mt-2">⏸ Öğrencilere henüz görev atanmadı</p>
+              )}
             </div>
 
             {/* Bekleyen siparisler - hafta hafta kutular */}
@@ -636,6 +700,129 @@ tr:nth-child(even) td{background:#fafafa}
                 </table>
               )}
             </div>
+          </div>
+        )}
+
+
+        {/* ═══ MARKET MODU ═══ */}
+        {aktifSekme === "market" && (
+          <div className="space-y-4">
+            {/* Filtreler - kompakt */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-wrap gap-3 items-center">
+              <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm font-medium">
+                {[{ val: "haftalik", label: "Haftalık" }, { val: "etkinlik", label: "Etkinlik" }, { val: "tumu", label: "Tümü" }].map((t) => (
+                  <button key={t.val} type="button"
+                    onClick={() => { setSecilenTip(t.val); setSecilenHafta("tumu"); }}
+                    className={`px-3 py-2 transition ${secilenTip === t.val ? "bg-emerald-600 text-white" : "bg-white text-gray-600"}`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <select value={secilenHafta} onChange={(e) => setSecilenHafta(e.target.value)}
+                className="border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 flex-1 min-w-[140px]">
+                {haftalar.map((h) => <option key={h} value={h}>{h === "tumu" ? "Tüm Haftalar" : h}</option>)}
+              </select>
+              {alinanlar.size > 0 && (
+                <div className="ml-auto flex items-center gap-3">
+                  <span className="text-sm font-bold text-emerald-600">✅ {alinanlar.size} / {satirlar.filter(u => u.satinAlinacak > 0).length} alındı</span>
+                  <button onClick={() => setAlinanlar(new Set())}
+                    className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5">
+                    Sıfırla
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* İlerleme çubuğu */}
+            {satirlar.filter(u => u.satinAlinacak > 0).length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-gray-700">Alışveriş İlerlemesi</span>
+                  <span className="text-sm font-bold text-emerald-600">
+                    {alinanlar.size} / {satirlar.filter(u => u.satinAlinacak > 0).length}
+                  </span>
+                </div>
+                <div className="bg-gray-100 rounded-full h-3 overflow-hidden">
+                  <div className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${satirlar.filter(u => u.satinAlinacak > 0).length > 0 ? (alinanlar.size / satirlar.filter(u => u.satinAlinacak > 0).length) * 100 : 0}%` }} />
+                </div>
+                {alinanlar.size === satirlar.filter(u => u.satinAlinacak > 0).length && alinanlar.size > 0 && (
+                  <p className="text-center text-emerald-600 font-bold mt-2">🎉 Alışveriş tamamlandı!</p>
+                )}
+              </div>
+            )}
+
+            {/* Ürün listesi - telefon optimized */}
+            {satirlar.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400">
+                Bu filtreye uygun ürün yok.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(() => {
+                  const gruplar: Record<string, OzetSatir[]> = {};
+                  satirlar.filter(u => u.satinAlinacak > 0).forEach((u) => {
+                    const kat = u.kategori || "Diger";
+                    if (!gruplar[kat]) gruplar[kat] = [];
+                    gruplar[kat].push(u);
+                  });
+                  return Object.entries(gruplar).map(([kategori, urunListesi]) => (
+                    <div key={kategori} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{kategori}</span>
+                        <span className="text-xs text-gray-400">
+                          {urunListesi.filter(u => alinanlar.has(`${u.urunAdi}__${u.marka}`)).length}/{urunListesi.length}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {urunListesi.map((u) => {
+                          const key = `${u.urunAdi}__${u.marka}`;
+                          const alindi = alinanlar.has(key);
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => {
+                                setAlinanlar(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(key)) next.delete(key);
+                                  else next.add(key);
+                                  return next;
+                                });
+                              }}
+                              className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors active:scale-[0.99] ${alindi ? "bg-emerald-50" : "hover:bg-gray-50"}`}
+                            >
+                              {/* Tik butonu */}
+                              <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${alindi ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`}>
+                                {alindi && <span className="text-white text-sm font-bold">✓</span>}
+                              </div>
+                              {/* Ürün bilgisi */}
+                              <div className="flex-1 min-w-0">
+                                <p className={`font-semibold text-base leading-tight ${alindi ? "line-through text-gray-400" : "text-gray-800"}`}>
+                                  {u.urunAdi}
+                                </p>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                  {u.marka && <span className="mr-2">{u.marka}</span>}
+                                  <span className="font-medium text-emerald-700">{parseFloat(u.satinAlinacak.toFixed(3))} {u.olcu}</span>
+                                </p>
+                              </div>
+                              {/* Fiyat */}
+                              {u.birimFiyat > 0 && (
+                                <div className="text-right shrink-0">
+                                  <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-gray-700"}`}>
+                                    {(u.birimFiyat * u.satinAlinacak).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
+                                  </p>
+                                  <p className="text-xs text-gray-400">{u.birimFiyat.toLocaleString("tr-TR")} TL/{u.olcu}</p>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
         )}
 

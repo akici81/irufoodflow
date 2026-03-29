@@ -40,6 +40,9 @@ const ROLE_MENUS: Record<string, { name: string; path: string }[]> = {
   stok: [
     { name: "Ana Sayfa", path: "/stok" },
   ],
+  ogrenci: [
+    { name: "Market Görevi", path: "/market" },
+  ],
   bolum_baskani: [
     { name: "Ana Sayfa", path: "/bolum-baskani" },
     { name: "Envanter Sayım", path: "/bolum-baskani/envanter-sayim" },
@@ -65,6 +68,7 @@ const ROL_LABEL: Record<string, string> = {
   stok: "Stok Birimi",
   "bolum-baskani": "Bölüm Başkanı",
   bolum_baskani: "Bölüm Başkanı",
+  ogrenci: "Satınalma Öğrencisi",
 };
 
 export default function DashboardLayout({
@@ -83,6 +87,7 @@ export default function DashboardLayout({
   const [sifreForm, setSifreForm] = useState({ mevcutSifre: "", yeniSifre: "", tekrar: "" });
   const [sifreBildirim, setSifreBildirim] = useState<{ tip: "basari" | "hata"; metin: string } | null>(null);
   const [sifreYukleniyor, setSifreYukleniyor] = useState(false);
+  const [menuAcik, setMenuAcik] = useState(false);
 
   useEffect(() => {
     const fetchKullanici = async () => {
@@ -98,6 +103,9 @@ export default function DashboardLayout({
     };
     fetchKullanici();
   }, [router]);
+
+  // Sayfa değişince menüyü kapat
+  useEffect(() => { setMenuAcik(false); }, [pathname]);
 
   const handleSifreDegistir = async () => {
     if (!sifreForm.yeniSifre || !sifreForm.mevcutSifre) {
@@ -139,79 +147,103 @@ export default function DashboardLayout({
     .slice(0, 2)
     .toUpperCase();
 
+  const SidebarIcerik = () => (
+    <>
+      {/* Logo */}
+      <div className="px-5 py-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-black" style={{ color: "#B71C1C" }}>İRÜ</span>
+          </div>
+          <div>
+            <p className="text-white font-bold text-sm leading-tight">FoodFlow</p>
+            <p className="text-white/50 text-xs">Yönetim Sistemi</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {menu.map((item) => {
+          const aktif = pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path) && item.path.length > 1);
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                aktif
+                  ? "bg-white text-red-800 font-semibold shadow-sm"
+                  : "text-white/75 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {item.name}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Kullanıcı */}
+      <div className="px-4 py-4 border-t border-white/10">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-full bg-white/15 border-2 border-white/25 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-xs font-bold">{initials}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-white text-sm font-semibold truncate leading-tight">
+              {kullanici.ad_soyad || kullanici.username}
+            </p>
+            <p className="text-white/50 text-xs truncate">
+              {ROL_LABEL[kullanici.role] ?? kullanici.role}
+            </p>
+          </div>
+        </div>
+        {(kullanici.role === "ogretmen" || kullanici.role === "bolum_baskani" || kullanici.role === "bolum-baskani") && (
+          <button
+            onClick={() => { setSifreModal(true); setSifreForm({ mevcutSifre: "", yeniSifre: "", tekrar: "" }); setSifreBildirim(null); }}
+            className="w-full text-xs font-medium py-1.5 rounded-lg text-white/50 hover:text-white/80 transition-all mb-1.5 text-left px-1"
+          >
+            🔑 Şifre Değiştir
+          </button>
+        )}
+        <button
+          onClick={handleLogout}
+          className="w-full text-sm font-medium py-2 rounded-lg border border-white/20 text-white/75 hover:bg-white/10 hover:text-white transition-all"
+        >
+          Çıkış Yap
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen flex bg-zinc-100">
 
-      {/* ─── SIDEBAR ─────────────────────────────── */}
-      <aside className="w-60 flex-shrink-0 flex flex-col fixed h-screen z-40"
+      {/* ─── DESKTOP SIDEBAR (md ve üzeri) ─── */}
+      <aside className="hidden md:flex w-60 flex-shrink-0 flex-col fixed h-screen z-40"
         style={{ background: "#B71C1C" }}>
-
-        {/* Logo */}
-        <div className="px-5 py-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-black" style={{ color: "#B71C1C" }}>İRÜ</span>
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm leading-tight">FoodFlow</p>
-              <p className="text-white/50 text-xs">Yönetim Sistemi</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {menu.map((item) => {
-            const aktif = pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path) && item.path.length > 1);
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  aktif
-                    ? "bg-white text-red-800 font-semibold shadow-sm"
-                    : "text-white/75 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Kullanıcı */}
-        <div className="px-4 py-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-white/15 border-2 border-white/25 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold">{initials}</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-white text-sm font-semibold truncate leading-tight">
-                {kullanici.ad_soyad || kullanici.username}
-              </p>
-              <p className="text-white/50 text-xs truncate">
-                {ROL_LABEL[kullanici.role] ?? kullanici.role}
-              </p>
-            </div>
-          </div>
-          {(kullanici.role === "ogretmen" || kullanici.role === "bolum_baskani" || kullanici.role === "bolum-baskani") && (
-            <button
-              onClick={() => { setSifreModal(true); setSifreForm({ mevcutSifre: "", yeniSifre: "", tekrar: "" }); setSifreBildirim(null); }}
-              className="w-full text-xs font-medium py-1.5 rounded-lg text-white/50 hover:text-white/80 transition-all mb-1.5 text-left px-1"
-            >
-              🔑 Şifre Değiştir
-            </button>
-          )}
-          <button
-            onClick={handleLogout}
-            className="w-full text-sm font-medium py-2 rounded-lg border border-white/20 text-white/75 hover:bg-white/10 hover:text-white transition-all"
-          >
-            Çıkış Yap
-          </button>
-        </div>
+        <SidebarIcerik />
       </aside>
 
-      {/* ─── ŞİFRE DEĞİŞTİR MODAL ─────────────── */}
+      {/* ─── MOBİL OVERLAY ─── */}
+      {menuAcik && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          {/* Karartma */}
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMenuAcik(false)} />
+          {/* Sidebar */}
+          <aside className="relative w-72 flex flex-col h-full z-10" style={{ background: "#B71C1C" }}>
+            {/* Kapat butonu */}
+            <button
+              onClick={() => setMenuAcik(false)}
+              className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl z-10"
+            >
+              ×
+            </button>
+            <SidebarIcerik />
+          </aside>
+        </div>
+      )}
+
+      {/* ─── ŞİFRE DEĞİŞTİR MODAL ─── */}
       {sifreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSifreModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80 space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -250,15 +282,32 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* ─── ANA İÇERİK ─────────────────────────── */}
-      <main className="flex-1 flex flex-col min-h-screen" style={{ marginLeft: 240 }}>
+      {/* ─── ANA İÇERİK ─── */}
+      <main className="flex-1 flex flex-col min-h-screen md:ml-60">
 
-        {/* Header */}
+        {/* Mobil Header */}
+        <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-zinc-200 bg-white sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#B71C1C" }}>
+              <span className="text-white text-xs font-black">İRÜ</span>
+            </div>
+            <span className="font-bold text-zinc-800 text-sm">{title || "FoodFlow"}</span>
+          </div>
+          <button
+            onClick={() => setMenuAcik(true)}
+            className="w-10 h-10 flex flex-col items-center justify-center gap-1.5 rounded-xl hover:bg-zinc-100 transition"
+          >
+            <span className="block w-5 h-0.5 bg-zinc-700 rounded" />
+            <span className="block w-5 h-0.5 bg-zinc-700 rounded" />
+            <span className="block w-5 h-0.5 bg-zinc-700 rounded" />
+          </button>
+        </div>
+
+        {/* Desktop Header */}
         {title && (
-          <div className="bg-white border-b border-zinc-200 px-8 py-5 flex-shrink-0">
+          <div className="hidden md:block bg-white border-b border-zinc-200 px-8 py-5 flex-shrink-0">
             {subtitle && (
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1"
-                style={{ color: "#B71C1C" }}>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#B71C1C" }}>
                 {subtitle}
               </p>
             )}
@@ -267,7 +316,7 @@ export default function DashboardLayout({
         )}
 
         {/* İçerik */}
-        <div className="flex-1 p-8 bg-zinc-50">
+        <div className="flex-1 p-4 md:p-8 bg-zinc-50">
           {children}
         </div>
       </main>

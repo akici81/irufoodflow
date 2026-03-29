@@ -49,6 +49,9 @@ const ROL_IZINLERI: Record<string, string[]> = {
     "/etkinlik-takvimi",
     "/urun-havuzu",
   ],
+  ogrenci: [
+    "/market",
+  ],
 };
 
 const ROL_ANA_SAYFA: Record<string, string> = {
@@ -58,6 +61,7 @@ const ROL_ANA_SAYFA: Record<string, string> = {
   stok: "/stok",
   bolum_baskani: "/bolum-baskani",
   "bolum-baskani": "/bolum-baskani",
+  ogrenci: "/market",
 };
 
 export function useAuth(gerekenSayfa: string) {

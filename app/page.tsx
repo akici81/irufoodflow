@@ -40,6 +40,7 @@ export default function LoginPage() {
       stok: "/stok",
       bolum_baskani: "/bolum-baskani",
       "bolum-baskani": "/bolum-baskani",
+      ogrenci: "/market",
     };
     router.push(rota[data.role] ?? "/");
   };
