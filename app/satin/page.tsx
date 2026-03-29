@@ -210,7 +210,6 @@ export default function SatinAlmaPage() {
 
   const handleStokDus = async (satir: OzetSatir, idx: number) => {
     if (!satir.urunId) { bildir("hata", `"${satir.urunAdi}" urun veritabaninda bulunamadi.`); return; }
-    if (satir.depodaMiktar <= 0) { bildir("hata", "Depoda bu urunun stoku zaten sifir."); return; }
     // Veritabanına DOKUNMUYORUZ — sadece bu haftanın listesinden düşüyoruz
     bildir("basari", `"${satir.urunAdi}" listeden düşüldü. Stok değişmedi.`);
     setStokMap((prev) => {
