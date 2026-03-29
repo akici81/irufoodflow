@@ -13,6 +13,26 @@ type OzetSatir = {
   listeMiktar: number; depodaMiktar: number; satinAlinacak: number;
   toplamTutar: number; birimFiyat: number;
   urunId: string | null; dususYapildi: boolean; kategori: string;
+  paketMiktari: number | null; paketBirimi: string;
+};
+
+// Paket sayısı hesabı: "700g (1 paket)" formatı
+const formatDepoda = (miktar: number, olcu: string, paketMiktari: number | null, paketBirimi: string): string => {
+  if (miktar <= 0) return "-";
+  const birim = paketBirimi || olcu;
+  const stokGoster = `${parseFloat(miktar.toFixed(3))} ${birim}`;
+  if (!paketMiktari || paketMiktari <= 0) return stokGoster;
+  const adet = miktar / paketMiktari;
+  const tam = Math.floor(adet);
+  const kalan = adet - tam;
+  let paketStr: string;
+  if (kalan < 0.05) paketStr = `${tam} paket`;
+  else if (kalan >= 0.95) paketStr = `${tam + 1} paket`;
+  else {
+    const kesir = kalan >= 0.6 ? "¾" : kalan >= 0.4 ? "½" : "¼";
+    paketStr = tam > 0 ? `${tam} ${kesir} paket` : `${kesir} paket`;
+  }
+  return `${stokGoster} (${paketStr})`;
 };
 
 const DURUM_STIL: Record<string, { bg: string; text: string; label: string }> = {
@@ -47,7 +67,7 @@ export default function SatinAlmaPage() {
   const fetchData = async () => {
     const [{ data: sipData }, { data: urunData }] = await Promise.all([
       supabase.from("siparisler").select("*").order("tarih", { ascending: false }),
-      supabase.from("urunler").select("id, urun_adi, marka, stok, kategori"),
+      supabase.from("urunler").select("id, urun_adi, marka, stok, kategori, paket_miktari, paket_birimi"),
     ]);
     setSiparisler((sipData || []).map((s: Record<string, unknown>) => ({
       id: s.id as string,
@@ -60,10 +80,16 @@ export default function SatinAlmaPage() {
       tarih: s.tarih as string,
       tip: (s.tip as string) || "haftalik",
     })));
-    const map: Record<string, { id: string; stok: number; kategori: string }> = {};
+    const map: Record<string, { id: string; stok: number; kategori: string; paketMiktari: number | null; paketBirimi: string }> = {};
     (urunData || []).forEach((u: Record<string, unknown>) => {
       const key = `${u.urun_adi}__${u.marka || ""}`;
-      map[key] = { id: u.id as string, stok: (u.stok as number) ?? 0, kategori: (u.kategori as string) || "Diger" };
+      map[key] = { 
+        id: u.id as string, 
+        stok: (u.stok as number) ?? 0, 
+        kategori: (u.kategori as string) || "Diger",
+        paketMiktari: (u.paket_miktari as number) ?? null,
+        paketBirimi: (u.paket_birimi as string) ?? "",
+      };
     });
     setStokMap(map);
   };
@@ -98,6 +124,8 @@ export default function SatinAlmaPage() {
             urunId: stokBilgi?.id || null,
             dususYapildi: false,
             kategori: stokBilgi?.kategori || "Diger",
+            paketMiktari: stokBilgi?.paketMiktari ?? null,
+            paketBirimi: stokBilgi?.paketBirimi ?? "",
           };
         }
         ozet[key].listeMiktar += Number(u.miktar);
@@ -577,7 +605,7 @@ tr:nth-child(even) td{background:#fafafa}
                             <td className="px-4 py-3.5 text-gray-700 font-medium">{parseFloat(u.listeMiktar.toFixed(3))} {u.olcu}</td>
                             <td className="px-4 py-3.5">
                               <span className={`font-semibold ${u.depodaMiktar > 0 ? "text-amber-600" : "text-gray-400"}`}>
-                                {u.depodaMiktar > 0 ? `${u.depodaMiktar} ${u.olcu}` : "-"}
+                                {formatDepoda(u.depodaMiktar, u.olcu, u.paketMiktari, u.paketBirimi)}
                               </span>
                             </td>
                             <td className="px-4 py-3.5">

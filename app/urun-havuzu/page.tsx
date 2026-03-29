@@ -17,12 +17,17 @@ export type Urun = {
   stok: number;
   kod: string;
   notlar: string;
+  paketMiktari: number | null;
+  paketBirimi: string;
 };
 
 const trCollator = new Intl.Collator("tr", { sensitivity: "base", numeric: true });
 
 const OLCU_SECENEKLERI = ["Kg", "L", "Paket", "Adet", "G", "Ml", "Kutu"];
-const BOSH_FORM: Omit<Urun, "id"> = { urunAdi: "", marka: "", fiyat: 0, olcu: "Kg", kategori: "", market: "", stok: 0, kod: "", notlar: "" };
+const BOSH_FORM: Omit<Urun, "id"> = {
+  urunAdi: "", marka: "", fiyat: 0, olcu: "Kg", kategori: "", market: "",
+  stok: 0, kod: "", notlar: "", paketMiktari: null, paketBirimi: "",
+};
 
 export default function UrunHavuzuPage() {
   const { yetkili, yukleniyor: authYukleniyor } = useAuth("/urun-havuzu");
@@ -47,7 +52,10 @@ export default function UrunHavuzuPage() {
     const { data } = await supabase.from("urunler").select("*");
     const mapped = (data || []).map((u: any) => ({
       id: u.id, urunAdi: u.urun_adi, marka: u.marka, fiyat: u.fiyat,
-      olcu: u.olcu, kategori: u.kategori, market: u.market, stok: u.stok, kod: u.kod, notlar: u.notlar,
+      olcu: u.olcu, kategori: u.kategori, market: u.market, stok: u.stok,
+      kod: u.kod, notlar: u.notlar,
+      paketMiktari: u.paket_miktari ?? null,
+      paketBirimi: u.paket_birimi ?? "",
     }));
     mapped.sort((a: Urun, b: Urun) => trCollator.compare(a.urunAdi, b.urunAdi));
     setUrunler(mapped);
@@ -78,6 +86,8 @@ export default function UrunHavuzuPage() {
           stok: Number(s["Stok"] ?? 0),
           kod: String(s["Kod"] ?? ""),
           notlar: String(s["Notlar"] ?? ""),
+          paket_miktari: s["Paket Miktarı"] ? Number(s["Paket Miktarı"]) : null,
+          paket_birimi: String(s["Paket Birimi"] ?? ""),
         }));
         const { error } = await supabase.from("urunler").insert(yeniUrunler);
         if (error) { bildirimGoster("hata", "Hata: " + error.message); return; }
@@ -95,6 +105,8 @@ export default function UrunHavuzuPage() {
       urun_adi: form.urunAdi, marka: form.marka, fiyat: form.fiyat,
       olcu: form.olcu, kategori: form.kategori, market: form.market,
       stok: form.stok, kod: form.kod, notlar: form.notlar,
+      paket_miktari: form.paketMiktari || null,
+      paket_birimi: form.paketBirimi || null,
     };
     if (duzenleId) {
       const { error } = await supabase.from("urunler").update(dbObj).eq("id", duzenleId);
@@ -129,7 +141,6 @@ export default function UrunHavuzuPage() {
     fetchUrunler();
   };
 
-  // Sıralama
   const handleSirala = (alan: string) => {
     setSiralama((prev) =>
       prev.alan === alan ? { alan, yon: prev.yon === "asc" ? "desc" : "asc" } : { alan, yon: "asc" }
@@ -141,27 +152,16 @@ export default function UrunHavuzuPage() {
     return siralama.yon === "asc" ? "↑" : "↓";
   };
 
-  // Kategori renkleri
   const kategoriler = ["Tümü", ...Array.from(new Set(urunler.map((u) => u.kategori).filter(Boolean))).sort((a, b) => a.localeCompare(b, "tr"))];
   const markalar = ["Tümü", ...Array.from(new Set(urunler.map((u) => u.marka).filter(Boolean))).sort((a, b) => a.localeCompare(b, "tr"))];
 
   const KATEGORI_RENKLERI: Record<string, string> = {};
   const RENK_PALETI = [
-    "bg-red-50 text-red-700",
-    "bg-blue-50 text-blue-700",
-    "bg-emerald-50 text-emerald-700",
-    "bg-amber-50 text-amber-700",
-    "bg-purple-50 text-purple-700",
-    "bg-pink-50 text-pink-700",
-    "bg-cyan-50 text-cyan-700",
-    "bg-orange-50 text-orange-700",
-    "bg-lime-50 text-lime-700",
-    "bg-violet-50 text-violet-700",
-    "bg-teal-50 text-teal-700",
-    "bg-rose-50 text-rose-700",
-    "bg-indigo-50 text-indigo-700",
-    "bg-sky-50 text-sky-700",
-    "bg-fuchsia-50 text-fuchsia-700",
+    "bg-red-50 text-red-700", "bg-blue-50 text-blue-700", "bg-emerald-50 text-emerald-700",
+    "bg-amber-50 text-amber-700", "bg-purple-50 text-purple-700", "bg-pink-50 text-pink-700",
+    "bg-cyan-50 text-cyan-700", "bg-orange-50 text-orange-700", "bg-lime-50 text-lime-700",
+    "bg-violet-50 text-violet-700", "bg-teal-50 text-teal-700", "bg-rose-50 text-rose-700",
+    "bg-indigo-50 text-indigo-700", "bg-sky-50 text-sky-700", "bg-fuchsia-50 text-fuchsia-700",
     "bg-yellow-50 text-yellow-700",
   ];
   kategoriler.filter((k) => k !== "Tümü").forEach((k, i) => {
@@ -170,7 +170,6 @@ export default function UrunHavuzuPage() {
 
   const kategoriRenk = (kategori: string) => KATEGORI_RENKLERI[kategori] || "bg-gray-100 text-gray-600";
 
-  // Filtreleme + sıralama
   const filtrelenmis = (() => {
     const kategoriUygun = (u: Urun) => secilenKategori === "Tümü" || u.kategori === secilenKategori;
     const markaUygun = (u: Urun) => secilenMarka === "Tümü" || u.marka === secilenMarka;
@@ -264,6 +263,7 @@ export default function UrunHavuzuPage() {
                         { label: "Marka", alan: "marka" },
                         { label: "Fiyat", alan: "fiyat" },
                         { label: "Ölçü", alan: "olcu" },
+                        { label: "Paket Boyutu", alan: "" },
                         { label: "Kategori", alan: "kategori" },
                         { label: "Market", alan: "market" },
                         { label: "Stok", alan: "stok" },
@@ -297,6 +297,13 @@ export default function UrunHavuzuPage() {
                         </td>
                         <td className="px-4 py-3 text-gray-500">{u.olcu}</td>
                         <td className="px-4 py-3">
+                          {u.paketMiktari
+                            ? <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                                {u.paketMiktari} {u.paketBirimi || u.olcu}
+                              </span>
+                            : <span className="text-gray-300 text-xs">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
                           {u.kategori
                             ? <span className={`${kategoriRenk(u.kategori)} text-xs px-2.5 py-0.5 rounded-full font-medium`}>{u.kategori}</span>
                             : "—"}
@@ -329,6 +336,7 @@ export default function UrunHavuzuPage() {
                 <button type="button" onClick={() => { setPanelAcik(false); setDuzenleId(null); setForm(BOSH_FORM); }}
                   className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
               </div>
+
               {[
                 { label: "Ürün Adı *", key: "urunAdi", type: "text" },
                 { label: "Marka", key: "marka", type: "text" },
@@ -346,6 +354,41 @@ export default function UrunHavuzuPage() {
                     min={type === "number" ? 0 : undefined} />
                 </div>
               ))}
+
+              {/* Paket Boyutu Alanı */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">📦 Paket Boyutu</p>
+                <p className="text-xs text-gray-400 mb-2">Marketten 1 seferde alınan miktarı girin. (örn: tahin → 800 Ml)</p>
+                <div className="flex gap-2">
+                  <div className="flex flex-col gap-1 flex-1">
+                    <label className="text-xs font-medium text-gray-700">Miktar</label>
+                    <input
+                      type="number"
+                      value={form.paketMiktari ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, paketMiktari: e.target.value ? Number(e.target.value) : null }))}
+                      placeholder="ör: 800"
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min={0}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 w-20">
+                    <label className="text-xs font-medium text-gray-700">Birim</label>
+                    <select
+                      value={form.paketBirimi || form.olcu}
+                      onChange={(e) => setForm((f) => ({ ...f, paketBirimi: e.target.value }))}
+                      className="border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {OLCU_SECENEKLERI.map((o) => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {form.paketMiktari && (
+                  <p className="text-xs text-blue-600 mt-1.5 bg-blue-50 px-2 py-1 rounded-lg">
+                    📦 1 paket = {form.paketMiktari} {form.paketBirimi || form.olcu}
+                  </p>
+                )}
+              </div>
+
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-700">Kategori</label>
                 <select
@@ -362,13 +405,15 @@ export default function UrunHavuzuPage() {
                   )}
                 </select>
               </div>
+
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-700">Ölçü</label>
+                <label className="text-xs font-medium text-gray-700">Ölçü (Stok birimi)</label>
                 <select value={form.olcu} onChange={(e) => setForm((f) => ({ ...f, olcu: e.target.value }))}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                   {OLCU_SECENEKLERI.map((o) => <option key={o}>{o}</option>)}
                 </select>
               </div>
+
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={handleFormKaydet}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 rounded-xl transition">

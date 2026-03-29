@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import * as XLSX from "xlsx";
 
 type UrunStok = { 
   id: string; 
@@ -13,6 +14,8 @@ type UrunStok = {
   stok: number; 
   kategori: string;
   sonSayimTarihi: string | null;
+  paketMiktari: number | null;
+  paketBirimi: string;
 };
 
 export default function StokPage() {
@@ -39,12 +42,14 @@ export default function StokPage() {
   const sayimInputRef = useRef<HTMLInputElement>(null);
   const hizliAramaRef = useRef<HTMLInputElement>(null);
   const hizliMiktarRef = useRef<HTMLInputElement>(null);
+  const excelRef = useRef<HTMLInputElement>(null);
+  const [excelSonuc, setExcelSonuc] = useState<{ eslesen: number; atlanan: string[] } | null>(null);
 
   useEffect(() => { fetchUrunler(); }, []);
 
   const fetchUrunler = async () => {
     setYukleniyor(true);
-    const { data } = await supabase.from("urunler").select("id, urun_adi, marka, olcu, stok, kategori, son_sayim_tarihi").order("urun_adi");
+    const { data } = await supabase.from("urunler").select("id, urun_adi, marka, olcu, stok, kategori, son_sayim_tarihi, paket_miktari, paket_birimi").order("urun_adi");
     const liste = (data || []).map((u: any) => ({
       id: u.id, 
       urunAdi: u.urun_adi, 
@@ -53,6 +58,8 @@ export default function StokPage() {
       stok: u.stok ?? 0,
       kategori: u.kategori || "Diger",
       sonSayimTarihi: u.son_sayim_tarihi || null,
+      paketMiktari: u.paket_miktari ?? null,
+      paketBirimi: u.paket_birimi ?? "",
     }));
     setUrunler(liste);
     const map: Record<string, number> = {};
@@ -69,12 +76,19 @@ export default function StokPage() {
   // Kategoriler
   const kategoriler = ["tumu", ...Array.from(new Set(urunler.map(u => u.kategori))).sort((a, b) => a.localeCompare(b, "tr"))];
 
-  // Ölçü birimine göre input tipi belirleme
-  const olcuBilgisi = (olcu: string) => {
-    const tip = olcu.toLowerCase();
-    if (tip === "kg" || tip === "l") return { serbest: true, baslangic: 0, adim: 0 };
-    if (tip === "g" || tip === "ml") return { serbest: false, baslangic: 50, adim: 50 };
-    return { serbest: false, baslangic: 1, adim: 1 };
+  // Tüm girişler serbest — öğrenci her zaman sayıyı yazar
+  const olcuBilgisi = (_olcu: string) => ({ serbest: true, baslangic: 0, adim: 0 });
+
+  // Paket hesabı: stok / paket_miktari → kaç paket/kutu
+  const paketHesapla = (u: UrunStok, stokDeger: number): string | null => {
+    if (!u.paketMiktari || u.paketMiktari <= 0 || stokDeger <= 0) return null;
+    const adet = stokDeger / u.paketMiktari;
+    const tam = Math.floor(adet);
+    const kalan = adet - tam;
+    if (kalan < 0.05) return tam === 1 ? "1 paket tam" : `${tam} paket`;
+    if (kalan >= 0.95) return `${tam + 1} paket`;
+    const kesir = kalan >= 0.6 ? "¾" : kalan >= 0.4 ? "½" : "¼";
+    return tam > 0 ? `${tam} ${kesir} paket` : `${kesir} paket`;
   };
 
   const handleKgInput = (id: string, metin: string) => {
@@ -303,6 +317,83 @@ tr:nth-child(even) td{background:#fafafa}
     setTimeout(() => win.print(), 400);
   };
 
+
+  // ── Excel Şablonu İndir ──────────────────────────────────────────────
+  const handleSablonIndir = () => {
+    const simdi = new Date().toLocaleDateString("tr-TR");
+    const satirlar = urunler.map(u => ({
+      "Ürün Adı": u.urunAdi,
+      "Marka": u.marka || "",
+      "Kategori": u.kategori || "",
+      "Paket Boyutu": u.paketMiktari ? `${u.paketMiktari} ${u.paketBirimi || u.olcu}` : "",
+      "Stok Birimi": u.paketBirimi || u.olcu,
+      "Sayım Miktarı": "",
+      "Notlar": "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(satirlar);
+    // Sütun genişlikleri
+    ws["!cols"] = [
+      { wch: 40 }, { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sayım");
+    XLSX.writeFile(wb, `IRU_Sayim_Sablonu_${simdi.replace(/\./g, "-")}.xlsx`);
+  };
+
+  // ── Excel Sayım Yükle ────────────────────────────────────────────────
+  const handleExcelYukle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dosya = e.target.files?.[0];
+    if (!dosya) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const wb = XLSX.read(ev.target?.result, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const satirlar: any[] = XLSX.utils.sheet_to_json(ws);
+
+        // Ürün adını normalize et: küçük harf + boşluk temizle
+        const normalize = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+        const urunMap: Record<string, UrunStok> = {};
+        urunler.forEach(u => { urunMap[normalize(u.urunAdi)] = u; });
+
+        const simdi = new Date().toISOString();
+        const eslesen: string[] = [];
+        const atlanan: string[] = [];
+
+        for (const satir of satirlar) {
+          const ad = String(satir["Ürün Adı"] ?? "").trim();
+          const miktarRaw = satir["Sayım Miktarı"];
+          if (!ad || miktarRaw === "" || miktarRaw === undefined || miktarRaw === null) {
+            if (ad) atlanan.push(`${ad} (miktar boş)`);
+            continue;
+          }
+          const miktar = parseFloat(String(miktarRaw).replace(",", "."));
+          if (isNaN(miktar) || miktar < 0) { atlanan.push(`${ad} (geçersiz miktar)`); continue; }
+
+          const urun = urunMap[normalize(ad)];
+          if (!urun) { atlanan.push(ad); continue; }
+
+          const { error } = await supabase.from("urunler").update({
+            stok: miktar,
+            son_sayim_tarihi: simdi,
+          }).eq("id", urun.id);
+
+          if (error) { atlanan.push(`${ad} (hata)`); continue; }
+          eslesen.push(ad);
+        }
+
+        // State güncelle
+        await fetchUrunler();
+        setExcelSonuc({ eslesen: eslesen.length, atlanan });
+        bildir("basari", `${eslesen.length} ürün güncellendi${atlanan.length > 0 ? `, ${atlanan.length} ürün atlandı` : "!"}`);
+      } catch (err) {
+        bildir("hata", "Excel okunamadı: " + String(err));
+      }
+    };
+    reader.readAsBinaryString(dosya);
+    if (excelRef.current) excelRef.current.value = "";
+  };
+
   // Tarih formatlama
   const formatTarih = (tarih: string | null) => {
     if (!tarih) return null;
@@ -347,6 +438,14 @@ tr:nth-child(even) td{background:#fafafa}
             className="bg-gray-600 hover:bg-gray-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">
             📄 Sayım Raporu
           </button>
+          <button onClick={handleSablonIndir}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition">
+            ⬇️ Sayım Şablonu
+          </button>
+          <label className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer">
+            📤 Sayım Yükle
+            <input ref={excelRef} type="file" accept=".xlsx,.xls" onChange={handleExcelYukle} className="hidden" />
+          </label>
         </div>
 
         {/* Sayım Modu Paneli */}
@@ -382,51 +481,35 @@ tr:nth-child(even) td{background:#fafafa}
                     <div>
                       <h3 className="text-xl font-bold text-gray-800">{u.urunAdi}</h3>
                       <p className="text-sm text-gray-500">{u.marka || "Marka yok"} · {u.kategori}</p>
+                      {u.paketMiktari && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                          📦 1 paket = {u.paketMiktari} {u.paketBirimi || u.olcu}
+                        </span>
+                      )}
                     </div>
                     {sayildi && <span className="text-emerald-500 text-2xl">✓</span>}
                   </div>
                   
-                  <div className="flex items-center gap-4">
-                    {bilgi.serbest ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          ref={sayimInputRef}
-                          type="text"
-                          inputMode="decimal"
-                          value={kgInputler[u.id] !== undefined ? kgInputler[u.id] : (deger > 0 ? String(deger).replace(".", ",") : "")}
-                          placeholder="orn: 1,500"
-                          onChange={(e) => handleKgInput(u.id, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleKaydet(u, true); }}
-                          className="w-32 border-2 border-amber-300 rounded-xl px-4 py-3 text-lg text-center font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-                        <span className="text-lg font-medium text-gray-600">{u.olcu}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleAzalt(u)}
-                          className="w-12 h-12 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 font-bold text-xl transition">
-                          -
-                        </button>
-                        <input
-                          ref={sayimInputRef}
-                          type="number"
-                          value={deger || ""}
-                          step={bilgi.adim}
-                          min={0}
-                          onChange={(e) => handleDirektMiktar(u.id, Number(e.target.value))}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleKaydet(u, true); }}
-                          className="w-24 border-2 border-amber-300 rounded-xl px-2 py-3 text-lg text-center font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-                        <span className="text-lg font-medium text-gray-600">{u.olcu}</span>
-                        <button onClick={() => handleArttir(u)}
-                          className="w-12 h-12 flex items-center justify-center bg-red-100 hover:bg-red-200 rounded-xl text-red-700 font-bold text-xl transition">
-                          +
-                        </button>
-                      </div>
-                    )}
-                    
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <input
+                        ref={sayimInputRef}
+                        type="text"
+                        inputMode="decimal"
+                        value={kgInputler[u.id] !== undefined ? kgInputler[u.id] : (deger > 0 ? String(deger).replace(".", ",") : "")}
+                        placeholder={u.paketBirimi ? `${u.paketBirimi} olarak gir` : "miktar gir..."}
+                        onChange={(e) => handleKgInput(u.id, e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleKaydet(u, true); }}
+                        className="w-36 border-2 border-amber-300 rounded-xl px-4 py-3 text-lg text-center font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="text-lg font-medium text-gray-600">{u.paketBirimi || u.olcu}</span>
+                      {paketHesapla(u, deger) && (
+                        <span className="text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-xl font-semibold">
+                          = {paketHesapla(u, deger)}
+                        </span>
+                      )}
+                    </div>
                     <button onClick={() => handleKaydet(u, true)}
                       className="ml-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition">
                       Kaydet & Sonraki →
@@ -447,6 +530,27 @@ tr:nth-child(even) td{background:#fafafa}
                 style={{ width: `${((sayimIndex + 1) / filtrelenmis.length) * 100}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {/* Excel Yükleme Sonucu */}
+        {excelSonuc && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-gray-800 text-sm">📊 Sayım Yükleme Sonucu</p>
+              <button onClick={() => setExcelSonuc(null)} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+            </div>
+            <p className="text-sm text-emerald-600 font-medium">✅ {excelSonuc.eslesen} ürün güncellendi</p>
+            {excelSonuc.atlanan.length > 0 && (
+              <div>
+                <p className="text-sm text-amber-600 font-medium mb-1">⚠️ {excelSonuc.atlanan.length} ürün atlandı (adlar ürün havuzuyla eşleşmedi):</p>
+                <div className="bg-amber-50 rounded-xl p-3 max-h-32 overflow-y-auto">
+                  {excelSonuc.atlanan.map((ad, i) => (
+                    <p key={i} className="text-xs text-amber-700">{ad}</p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -521,6 +625,7 @@ tr:nth-child(even) td{background:#fafafa}
                   <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">ÜRÜN</th>
                   <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">MARKA</th>
                   <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">KATEGORİ</th>
+                  <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">📦 PAKET</th>
                   <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-52">DEPODA MEVCUT</th>
                   <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">SON SAYIM</th>
                   <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">DURUM</th>
@@ -539,45 +644,32 @@ tr:nth-child(even) td{background:#fafafa}
                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg">{u.kategori}</span>
                       </td>
                       <td className="px-5 py-3">
-                        {bilgi.serbest ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={kgInputler[u.id] !== undefined ? kgInputler[u.id] : (deger > 0 ? String(deger).replace(".", ",") : "")}
-                              placeholder="orn: 1,500"
-                              onChange={(e) => handleKgInput(u.id, e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              onBlur={() => handleKaydet(u)}
-                              onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
-                              className={`w-28 border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-red-500 transition ${degisti ? "border-amber-400 bg-amber-50" : deger > 0 ? "border-gray-300 bg-white" : "border-gray-200 bg-white"} ${deger > 0 ? "text-emerald-700 font-semibold" : "text-gray-400"}`}
-                            />
-                            <span className="text-xs font-medium text-gray-500">{u.olcu}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => handleAzalt(u)}
-                              className="w-7 h-7 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 font-bold text-sm transition">
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              value={deger || ""}
-                              step={bilgi.adim}
-                              min={0}
-                              onChange={(e) => handleDirektMiktar(u.id, Number(e.target.value))}
-                              onFocus={(e) => e.target.select()}
-                              onBlur={() => handleKaydet(u)}
-                              onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
-                              className={`w-16 border rounded-lg px-1 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-red-500 transition ${degisti ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-white"} ${deger > 0 ? "text-emerald-700 font-semibold" : "text-gray-400"}`}
-                            />
-                            <span className="text-xs text-gray-400">{u.olcu}</span>
-                            <button type="button" onClick={() => handleArttir(u)}
-                              className="w-7 h-7 flex items-center justify-center bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-bold text-sm transition">
-                              +
-                            </button>
-                          </div>
-                        )}
+                        {u.paketMiktari
+                          ? <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg font-medium whitespace-nowrap">
+                              {u.paketMiktari} {u.paketBirimi || u.olcu}
+                            </span>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={kgInputler[u.id] !== undefined ? kgInputler[u.id] : (deger > 0 ? String(deger).replace(".", ",") : "")}
+                            placeholder="miktar gir..."
+                            onChange={(e) => handleKgInput(u.id, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onBlur={() => handleKaydet(u)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+                            className={`w-24 border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-red-500 transition ${degisti ? "border-amber-400 bg-amber-50" : deger > 0 ? "border-gray-300 bg-white" : "border-gray-200 bg-white"} ${deger > 0 ? "text-emerald-700 font-semibold" : "text-gray-400"}`}
+                          />
+                          <span className="text-xs font-medium text-gray-500">{u.paketBirimi || u.olcu}</span>
+                          {paketHesapla(u, deger) && (
+                            <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                              = {paketHesapla(u, deger)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3">
                         {u.sonSayimTarihi ? (
