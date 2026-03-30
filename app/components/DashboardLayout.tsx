@@ -71,6 +71,99 @@ const ROL_LABEL: Record<string, string> = {
   ogrenci: "Satınalma Öğrencisi",
 };
 
+// ─── SidebarIcerik — DashboardLayout DIŞINDA tanımlı (kritik düzeltme) ───
+// İçeride tanımlanınca React her render'da yeni bir component tipi oluşturur,
+// bu da "button içinde button" gibi hydration hatalarına ve crash'e yol açar.
+function SidebarIcerik({
+  menu,
+  kullanici,
+  initials,
+  pathname,
+  onSifreClick,
+  onLogout,
+}: {
+  menu: { name: string; path: string }[];
+  kullanici: Kullanici;
+  initials: string;
+  pathname: string;
+  onSifreClick: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <>
+      {/* Logo */}
+      <div className="px-5 py-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-black" style={{ color: "#B71C1C" }}>İRÜ</span>
+          </div>
+          <div>
+            <p className="text-white font-bold text-sm leading-tight">FoodFlow</p>
+            <p className="text-white/50 text-xs">Yönetim Sistemi</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {menu.map((item) => {
+          const aktif =
+            pathname === item.path ||
+            (item.path !== "/" && pathname.startsWith(item.path) && item.path.length > 1);
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                aktif
+                  ? "bg-white text-red-800 font-semibold shadow-sm"
+                  : "text-white/75 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {item.name}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Kullanıcı */}
+      <div className="px-4 py-4 border-t border-white/10">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-full bg-white/15 border-2 border-white/25 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-xs font-bold">{initials}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-white text-sm font-semibold truncate leading-tight">
+              {kullanici.ad_soyad || kullanici.username}
+            </p>
+            <p className="text-white/50 text-xs truncate">
+              {ROL_LABEL[kullanici.role] ?? kullanici.role}
+            </p>
+          </div>
+        </div>
+        {(kullanici.role === "ogretmen" ||
+          kullanici.role === "bolum_baskani" ||
+          kullanici.role === "bolum-baskani") && (
+          <button
+            onClick={onSifreClick}
+            className="w-full text-xs font-medium py-1.5 rounded-lg text-white/50 hover:text-white/80 transition-all mb-1.5 text-left px-1"
+          >
+            🔑 Şifre Değiştir
+          </button>
+        )}
+        <button
+          onClick={onLogout}
+          className="w-full text-sm font-medium py-2 rounded-lg border border-white/20 text-white/75 hover:bg-white/10 hover:text-white transition-all"
+        >
+          Çıkış Yap
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function DashboardLayout({
   children,
   title,
@@ -85,7 +178,10 @@ export default function DashboardLayout({
   const [kullanici, setKullanici] = useState<Kullanici | null>(null);
   const [sifreModal, setSifreModal] = useState(false);
   const [sifreForm, setSifreForm] = useState({ mevcutSifre: "", yeniSifre: "", tekrar: "" });
-  const [sifreBildirim, setSifreBildirim] = useState<{ tip: "basari" | "hata"; metin: string } | null>(null);
+  const [sifreBildirim, setSifreBildirim] = useState<{
+    tip: "basari" | "hata";
+    metin: string;
+  } | null>(null);
   const [sifreYukleniyor, setSifreYukleniyor] = useState(false);
   const [menuAcik, setMenuAcik] = useState(false);
 
@@ -118,12 +214,19 @@ export default function DashboardLayout({
       setSifreBildirim({ tip: "hata", metin: "Şifre en az 4 karakter olmalı." }); return;
     }
     setSifreYukleniyor(true);
-    const { data } = await supabase.from("kullanicilar").select("password_hash").eq("id", kullanici!.id).single();
+    const { data } = await supabase
+      .from("kullanicilar")
+      .select("password_hash")
+      .eq("id", kullanici!.id)
+      .single();
     if (!data || data.password_hash !== sifreForm.mevcutSifre) {
       setSifreBildirim({ tip: "hata", metin: "Mevcut şifre yanlış." });
       setSifreYukleniyor(false); return;
     }
-    await supabase.from("kullanicilar").update({ password_hash: sifreForm.yeniSifre }).eq("id", kullanici!.id);
+    await supabase
+      .from("kullanicilar")
+      .update({ password_hash: sifreForm.yeniSifre })
+      .eq("id", kullanici!.id);
     setSifreBildirim({ tip: "basari", metin: "Şifre başarıyla güncellendi!" });
     setSifreYukleniyor(false);
     setSifreForm({ mevcutSifre: "", yeniSifre: "", tekrar: "" });
@@ -147,81 +250,28 @@ export default function DashboardLayout({
     .slice(0, 2)
     .toUpperCase();
 
-  const SidebarIcerik = () => (
-    <>
-      {/* Logo */}
-      <div className="px-5 py-6 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-black" style={{ color: "#B71C1C" }}>İRÜ</span>
-          </div>
-          <div>
-            <p className="text-white font-bold text-sm leading-tight">FoodFlow</p>
-            <p className="text-white/50 text-xs">Yönetim Sistemi</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {menu.map((item) => {
-          const aktif = pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path) && item.path.length > 1);
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                aktif
-                  ? "bg-white text-red-800 font-semibold shadow-sm"
-                  : "text-white/75 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Kullanıcı */}
-      <div className="px-4 py-4 border-t border-white/10">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-white/15 border-2 border-white/25 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">{initials}</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-white text-sm font-semibold truncate leading-tight">
-              {kullanici.ad_soyad || kullanici.username}
-            </p>
-            <p className="text-white/50 text-xs truncate">
-              {ROL_LABEL[kullanici.role] ?? kullanici.role}
-            </p>
-          </div>
-        </div>
-        {(kullanici.role === "ogretmen" || kullanici.role === "bolum_baskani" || kullanici.role === "bolum-baskani") && (
-          <button
-            onClick={() => { setSifreModal(true); setSifreForm({ mevcutSifre: "", yeniSifre: "", tekrar: "" }); setSifreBildirim(null); }}
-            className="w-full text-xs font-medium py-1.5 rounded-lg text-white/50 hover:text-white/80 transition-all mb-1.5 text-left px-1"
-          >
-            🔑 Şifre Değiştir
-          </button>
-        )}
-        <button
-          onClick={handleLogout}
-          className="w-full text-sm font-medium py-2 rounded-lg border border-white/20 text-white/75 hover:bg-white/10 hover:text-white transition-all"
-        >
-          Çıkış Yap
-        </button>
-      </div>
-    </>
-  );
+  const sidebarProps = {
+    menu,
+    kullanici,
+    initials,
+    pathname,
+    onSifreClick: () => {
+      setSifreModal(true);
+      setSifreForm({ mevcutSifre: "", yeniSifre: "", tekrar: "" });
+      setSifreBildirim(null);
+    },
+    onLogout: handleLogout,
+  };
 
   return (
     <div className="min-h-screen flex bg-zinc-100">
 
       {/* ─── DESKTOP SIDEBAR (md ve üzeri) ─── */}
-      <aside className="hidden md:flex w-60 flex-shrink-0 flex-col fixed h-screen z-40"
-        style={{ background: "#B71C1C" }}>
-        <SidebarIcerik />
+      <aside
+        className="hidden md:flex w-60 flex-shrink-0 flex-col fixed h-screen z-40"
+        style={{ background: "#B71C1C" }}
+      >
+        <SidebarIcerik {...sidebarProps} />
       </aside>
 
       {/* ─── MOBİL OVERLAY ─── */}
@@ -230,7 +280,10 @@ export default function DashboardLayout({
           {/* Karartma */}
           <div className="absolute inset-0 bg-black/50" onClick={() => setMenuAcik(false)} />
           {/* Sidebar */}
-          <aside className="relative w-72 flex flex-col h-full z-10" style={{ background: "#B71C1C" }}>
+          <aside
+            className="relative w-72 flex flex-col h-full z-10"
+            style={{ background: "#B71C1C" }}
+          >
             {/* Kapat butonu */}
             <button
               onClick={() => setMenuAcik(false)}
@@ -238,21 +291,38 @@ export default function DashboardLayout({
             >
               ×
             </button>
-            <SidebarIcerik />
+            <SidebarIcerik {...sidebarProps} />
           </aside>
         </div>
       )}
 
       {/* ─── ŞİFRE DEĞİŞTİR MODAL ─── */}
       {sifreModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSifreModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setSifreModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl p-6 w-80 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-800">Şifre Değiştir</h3>
-              <button onClick={() => setSifreModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              <button
+                onClick={() => setSifreModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              >
+                ×
+              </button>
             </div>
             {sifreBildirim && (
-              <div className={`text-xs rounded-lg px-3 py-2 font-medium ${sifreBildirim.tip === "basari" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+              <div
+                className={`text-xs rounded-lg px-3 py-2 font-medium ${
+                  sifreBildirim.tip === "basari"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-600"
+                }`}
+              >
                 {sifreBildirim.metin}
               </div>
             )}
@@ -266,7 +336,7 @@ export default function DashboardLayout({
                 <input
                   type="password"
                   value={(sifreForm as any)[key]}
-                  onChange={(e) => setSifreForm(f => ({ ...f, [key]: e.target.value }))}
+                  onChange={(e) => setSifreForm((f) => ({ ...f, [key]: e.target.value }))}
                   className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
@@ -288,7 +358,10 @@ export default function DashboardLayout({
         {/* Mobil Header */}
         <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-zinc-200 bg-white sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#B71C1C" }}>
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: "#B71C1C" }}
+            >
               <span className="text-white text-xs font-black">İRÜ</span>
             </div>
             <span className="font-bold text-zinc-800 text-sm">{title || "FoodFlow"}</span>
@@ -307,7 +380,10 @@ export default function DashboardLayout({
         {title && (
           <div className="hidden md:block bg-white border-b border-zinc-200 px-8 py-5 flex-shrink-0">
             {subtitle && (
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#B71C1C" }}>
+              <p
+                className="text-xs font-semibold uppercase tracking-widest mb-1"
+                style={{ color: "#B71C1C" }}
+              >
                 {subtitle}
               </p>
             )}

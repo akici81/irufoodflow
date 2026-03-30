@@ -29,6 +29,7 @@ export default function AlisverisListeleriPage() {
   const [dersListeleri, setDersListeleri] = useState<Record<string, DersListesi>>({});
   const [aktifSekme, setAktifSekme] = useState<"liste-olustur" | "listelerim">("liste-olustur");
   const [sablonYukleniyor, setSablonYukleniyor] = useState<Record<string, boolean>>({});
+  const [kaydetYukleniyor, setKaydetYukleniyor] = useState(false);
   const [dersSablonDosyasi, setDersSablonDosyasi] = useState<Record<string, File>>({});
   const sablonInputRef = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -155,34 +156,72 @@ export default function AlisverisListeleriPage() {
 
   const haftaToplam = secilenUrunListesi.reduce((acc, u) => acc + u.toplam, 0);
 
+  // ✅ FIX: maybeSingle() + try/catch + crypto.randomUUID()
   const handleHaftaKaydet = async () => {
     if (!secilenDers) { bildirimGoster("hata", "Lutfen ders secin."); return; }
     if (secilenUrunListesi.length === 0) { bildirimGoster("hata", "En az bir urun secin."); return; }
     if (!kullaniciId || !secilenDersObj) return;
 
-    const { data: mevcut } = await supabase.from("siparisler").select("id")
-      .eq("ogretmen_id", kullaniciId).eq("ders_id", secilenDers).eq("hafta", secilenHafta).single();
+    setKaydetYukleniyor(true);
+    try {
+      const { data: mevcut, error: sorguHata } = await supabase
+        .from("siparisler")
+        .select("id")
+        .eq("ogretmen_id", kullaniciId)
+        .eq("ders_id", secilenDers)
+        .eq("hafta", secilenHafta)
+        .maybeSingle();
 
-    if (mevcut) {
-      await supabase.from("siparisler").update({ urunler: secilenUrunListesi, genel_toplam: haftaToplam }).eq("id", mevcut.id);
-    } else {
-      await supabase.from("siparisler").insert({
-        ogretmen_id: kullaniciId, ogretmen_adi: kullaniciAdi,
-        ders_id: secilenDers, ders_adi: `${secilenDersObj.kod} - ${secilenDersObj.ad}`,
-        hafta: secilenHafta, urunler: secilenUrunListesi, genel_toplam: haftaToplam,
-        tarih: new Date().toLocaleDateString("tr-TR"), durum: "bekliyor",
-      });
+      if (sorguHata) throw sorguHata;
+
+      if (mevcut) {
+        const { error } = await supabase
+          .from("siparisler")
+          .update({ urunler: secilenUrunListesi, genel_toplam: haftaToplam })
+          .eq("id", mevcut.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("siparisler").insert({
+          id: crypto.randomUUID(),
+          ogretmen_id: kullaniciId,
+          ogretmen_adi: kullaniciAdi,
+          ders_id: secilenDers,
+          ders_adi: `${secilenDersObj.kod} - ${secilenDersObj.ad}`,
+          hafta: secilenHafta,
+          urunler: secilenUrunListesi,
+          genel_toplam: haftaToplam,
+          tarih: new Date().toLocaleDateString("tr-TR"),
+          durum: "bekliyor",
+          tip: "haftalik",
+        });
+        if (error) throw error;
+      }
+
+      setDersListeleri((prev) => ({
+        ...prev,
+        [secilenDers]: {
+          ...(prev[secilenDers] || {
+            dersId: secilenDers,
+            dersAdi: secilenDersObj.ad,
+            dersKodu: secilenDersObj.kod,
+            ogretmenAdi: kullaniciAdi,
+            olusturmaTarihi: new Date().toLocaleDateString("tr-TR"),
+            haftalar: {},
+          }),
+          haftalar: {
+            ...(prev[secilenDers]?.haftalar || {}),
+            [secilenHafta]: secilenUrunListesi,
+          },
+        },
+      }));
+
+      bildirimGoster("basari", `${secilenHafta} listesi kaydedildi!`);
+    } catch (hata: any) {
+      console.error("Kayit hatasi:", hata);
+      bildirimGoster("hata", `Kayit basarisiz: ${hata?.message || "Bilinmeyen hata"}`);
+    } finally {
+      setKaydetYukleniyor(false);
     }
-
-    setDersListeleri((prev) => ({
-      ...prev,
-      [secilenDers]: {
-        ...(prev[secilenDers] || { dersId: secilenDers, dersAdi: secilenDersObj.ad, dersKodu: secilenDersObj.kod, ogretmenAdi: kullaniciAdi, olusturmaTarihi: new Date().toLocaleDateString("tr-TR"), haftalar: {} }),
-        haftalar: { ...(prev[secilenDers]?.haftalar || {}), [secilenHafta]: secilenUrunListesi },
-      },
-    }));
-
-    bildirimGoster("basari", `${secilenHafta} listesi kaydedildi!`);
   };
 
   const handleExcelIndir = (dersId: string) => {
@@ -222,7 +261,6 @@ export default function AlisverisListeleriPage() {
     XLSX.writeFile(wb, `${dl.dersKodu}_Malzeme_Talep_Listesi.xlsx`);
   };
 
-  // ✅ DÜZELTİLDİ: toplam <div> yerine <p> olarak tablo DIŞINDA yazılıyor
   const handlePdfIndir = (dersId: string) => {
     const dl = dersListeleri[dersId];
     if (!dl) return;
@@ -278,6 +316,7 @@ export default function AlisverisListeleriPage() {
     XLSX.writeFile(wb, `${ders.kod}_Sablon.xlsx`);
   };
 
+  // ✅ FIX: maybeSingle() + try/catch + crypto.randomUUID()
   const handleSablonYukle = async (dersId: string, dosya: File) => {
     const ders = atananDersler.find((d) => d.id === dersId);
     if (!ders || !kullaniciId) return;
@@ -304,29 +343,57 @@ export default function AlisverisListeleriPage() {
           };
         });
         const haftaToplami = urunListesi.reduce((a, u) => a + u.toplam, 0);
-        const { data: mevcut } = await supabase.from("siparisler").select("id")
-          .eq("ogretmen_id", kullaniciId).eq("ders_id", dersId).eq("hafta", hafta).single();
+
+        const { data: mevcut, error: sorguHata } = await supabase
+          .from("siparisler")
+          .select("id")
+          .eq("ogretmen_id", kullaniciId)
+          .eq("ders_id", dersId)
+          .eq("hafta", hafta)
+          .maybeSingle();
+
+        if (sorguHata) throw sorguHata;
+
         if (mevcut) {
-          await supabase.from("siparisler").update({ urunler: urunListesi, genel_toplam: haftaToplami }).eq("id", mevcut.id);
+          const { error } = await supabase
+            .from("siparisler")
+            .update({ urunler: urunListesi, genel_toplam: haftaToplami })
+            .eq("id", mevcut.id);
+          if (error) throw error;
         } else {
-          await supabase.from("siparisler").insert({
-            ogretmen_id: kullaniciId, ogretmen_adi: kullaniciAdi,
-            ders_id: dersId, ders_adi: `${ders.kod} - ${ders.ad}`,
-            hafta, urunler: urunListesi, genel_toplam: haftaToplami,
-            tarih: new Date().toLocaleDateString("tr-TR"), durum: "bekliyor",
+          const { error } = await supabase.from("siparisler").insert({
+            id: crypto.randomUUID(),
+            ogretmen_id: kullaniciId,
+            ogretmen_adi: kullaniciAdi,
+            ders_id: dersId,
+            ders_adi: `${ders.kod} - ${ders.ad}`,
+            hafta,
+            urunler: urunListesi,
+            genel_toplam: haftaToplami,
+            tarih: new Date().toLocaleDateString("tr-TR"),
+            durum: "bekliyor",
+            tip: "haftalik",
           });
+          if (error) throw error;
         }
+
         setDersListeleri((prev) => ({
           ...prev,
           [dersId]: {
-            ...(prev[dersId] || { dersId, dersAdi: ders.ad, dersKodu: ders.kod, ogretmenAdi: kullaniciAdi, olusturmaTarihi: new Date().toLocaleDateString("tr-TR"), haftalar: {} }),
+            ...(prev[dersId] || {
+              dersId, dersAdi: ders.ad, dersKodu: ders.kod,
+              ogretmenAdi: kullaniciAdi,
+              olusturmaTarihi: new Date().toLocaleDateString("tr-TR"),
+              haftalar: {},
+            }),
             haftalar: { ...(prev[dersId]?.haftalar || {}), [hafta]: urunListesi },
           },
         }));
       }
       bildirimGoster("basari", `${ders.kod} sablon verisi yuklendi!`);
-    } catch {
-      bildirimGoster("hata", "Sablon yuklenirken hata olustu.");
+    } catch (hata: any) {
+      console.error("Sablon yukleme hatasi:", hata);
+      bildirimGoster("hata", `Sablon yuklenirken hata olustu: ${hata?.message || "Bilinmeyen hata"}`);
     } finally {
       setSablonYukleniyor((prev) => ({ ...prev, [dersId]: false }));
       setDersSablonDosyasi((prev) => { const y = { ...prev }; delete y[dersId]; return y; });
@@ -379,7 +446,7 @@ export default function AlisverisListeleriPage() {
                       return (
                         <button key={h} onClick={() => setSecilenHafta(h)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${secilenHafta === h ? "bg-red-700 text-white border-red-700" : dolu ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
-                          {h.replace(". Hafta", ".")} {dolu && secilenHafta !== h ? "v" : ""}
+                          {h.replace(". Hafta", ".")} {dolu && secilenHafta !== h ? "✓" : ""}
                         </button>
                       );
                     })}
@@ -541,9 +608,22 @@ export default function AlisverisListeleriPage() {
                       </div>
                     </>
                   )}
-                  <button type="button" onClick={handleHaftaKaydet} disabled={!secilenDers}
-                    className="w-full bg-red-700 hover:bg-red-800 text-white text-sm font-semibold py-3 rounded-xl transition disabled:opacity-40">
-                    {secilenHafta} Listesini Kaydet
+                  <button
+                    type="button"
+                    onClick={handleHaftaKaydet}
+                    disabled={!secilenDers || kaydetYukleniyor}
+                    className="w-full bg-red-700 hover:bg-red-800 text-white text-sm font-semibold py-3 rounded-xl transition disabled:opacity-40 flex items-center justify-center gap-2">
+                    {kaydetYukleniyor ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Kaydediliyor...
+                      </>
+                    ) : (
+                      `${secilenHafta} Listesini Kaydet`
+                    )}
                   </button>
                 </div>
               </div>
