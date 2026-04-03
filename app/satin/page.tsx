@@ -14,6 +14,7 @@ type OzetSatir = {
   toplamTutar: number; birimFiyat: number;
   urunId: string | null; dususYapildi: boolean; kategori: string;
   paketMiktari: number | null; paketBirimi: string;
+  hocalar: Record<string, number>;
 };
 
 // Paket sayısı hesabı: "700g (1 paket)" formatı
@@ -200,12 +201,15 @@ export default function SatinAlmaPage() {
             urunId: stokBilgi?.id || null,
             dususYapildi: dususYapildiSet.has(`${secilenHafta}__${u.urunAdi}__${u.marka || ""}`),
             kategori: stokBilgi?.kategori || "Diger",
+            hocalar: {},
             paketMiktari: stokBilgi?.paketMiktari ?? null,
             paketBirimi: stokBilgi?.paketBirimi ?? "",
           };
         }
         ozet[key].listeMiktar += Number(u.miktar);
         ozet[key].toplamTutar += Number(u.toplam);
+        const hocaAdi = s.ogretmenAdi || "Bilinmiyor";
+        ozet[key].hocalar[hocaAdi] = (ozet[key].hocalar[hocaAdi] || 0) + Number(u.miktar);
       });
     });
     Object.values(ozet).forEach((s) => {
@@ -840,7 +844,7 @@ tr:nth-child(even) td{background:#fafafa}
                 Bu filtreye uygun ürün yok.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {(() => {
                   const gruplar: Record<string, OzetSatir[]> = {};
                   satirlar.filter(u => u.satinAlinacak > 0).forEach((u) => {
@@ -850,11 +854,23 @@ tr:nth-child(even) td{background:#fafafa}
                   });
                   return Object.entries(gruplar).map(([kategori, urunListesi]) => (
                     <div key={kategori} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                        <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{kategori}</span>
-                        <span className="text-xs text-gray-400">
-                          {urunListesi.filter(u => alinanlar.has(`${u.urunAdi}__${u.marka}`)).length}/{urunListesi.length}
-                        </span>
+                      {/* Kategori başlığı — kırmızı, market sayfasıyla aynı */}
+                      <div className="border-b border-gray-100" style={{ background: "#8B0000" }}>
+                        <div className="px-4 py-2 flex items-center justify-between">
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">{kategori}</span>
+                          <span className="text-xs font-semibold text-white/70">
+                            {urunListesi.filter(u => alinanlar.has(`${u.urunAdi}__${u.marka}`)).length}/{urunListesi.length} alındı
+                          </span>
+                        </div>
+                        <div className="flex items-center px-4 py-1 border-t border-white/10">
+                          <div className="flex-1" />
+                          <div className="w-24 text-center">
+                            <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alınacak</span>
+                          </div>
+                          <div className="w-28 text-right">
+                            <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Tutar</span>
+                          </div>
+                        </div>
                       </div>
                       <div className="divide-y divide-gray-50">
                         {urunListesi.map((u) => {
@@ -864,31 +880,43 @@ tr:nth-child(even) td{background:#fafafa}
                             <button
                               key={key}
                               onClick={() => handleMarketTik(key)}
-                              className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors active:scale-[0.99] ${alindi ? "bg-emerald-50" : "hover:bg-gray-50"}`}
+                              className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${alindi ? "bg-emerald-50" : "hover:bg-gray-50 active:bg-gray-100"}`}
                             >
-                              {/* Tik butonu */}
+                              {/* Tik */}
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${alindi ? "bg-emerald-500 border-emerald-500" : "border-gray-300"}`}>
                                 {alindi && <span className="text-white text-sm font-bold">✓</span>}
                               </div>
                               {/* Ürün bilgisi */}
                               <div className="flex-1 min-w-0">
-                                <p className={`font-semibold text-base leading-tight ${alindi ? "line-through text-gray-400" : "text-gray-800"}`}>
+                                <p className={`font-semibold text-sm leading-tight ${alindi ? "line-through text-gray-400" : "text-gray-800"}`}>
                                   {u.urunAdi}
                                 </p>
-                                <p className="text-sm text-gray-500 mt-0.5">
-                                  {u.marka && <span className="mr-2">{u.marka}</span>}
-                                  <span className="font-medium text-emerald-700">{parseFloat(u.satinAlinacak.toFixed(3))} {u.olcu}</span>
+                                {u.marka && (
+                                  <p className="text-xs text-gray-400 mt-0.5">{u.marka}</p>
+                                )}
+                                {Object.keys(u.hocalar).length > 0 && (
+                                  <p className="text-xs text-blue-400 mt-0.5">
+                                    {Object.entries(u.hocalar).map(([hoca, miktar]) => `${hoca} (${parseFloat(Number(miktar).toFixed(3))} ${u.olcu})`).join(" · ")}
+                                  </p>
+                                )}
+                              </div>
+                              {/* Alınacak miktar */}
+                              <div className="w-24 text-center shrink-0">
+                                <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-red-700"}`}>
+                                  {parseFloat(u.satinAlinacak.toFixed(3))} {u.olcu}
                                 </p>
                               </div>
-                              {/* Fiyat */}
-                              {u.birimFiyat > 0 && (
-                                <div className="text-right shrink-0">
-                                  <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-gray-700"}`}>
-                                    {(u.birimFiyat * u.satinAlinacak).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
-                                  </p>
-                                  <p className="text-xs text-gray-400">{u.birimFiyat.toLocaleString("tr-TR")} TL/{u.olcu}</p>
-                                </div>
-                              )}
+                              {/* Tutar */}
+                              <div className="w-28 text-right shrink-0">
+                                {u.birimFiyat > 0 ? (
+                                  <>
+                                    <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-gray-700"}`}>
+                                      {(u.birimFiyat * u.satinAlinacak).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
+                                    </p>
+                                    <p className="text-xs text-gray-400">{u.birimFiyat.toLocaleString("tr-TR")} TL/{u.olcu}</p>
+                                  </>
+                                ) : <span />}
+                              </div>
                             </button>
                           );
                         })}
