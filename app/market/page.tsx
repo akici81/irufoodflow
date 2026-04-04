@@ -10,12 +10,33 @@ type OzetSatir = {
   satinAlinacak: number; birimFiyat: number; kategori: string;
 };
 
+type TemizlikGorev = {
+  id: string; ders_adi: string; ders_kodu: string; ogretmen_adi: string;
+  baslangic_tarihi: string; hafta_sayisi: number; grup_sayisi: number;
+  grup_isimleri: string[]; temizlik_alanlari: string[];
+};
+
+const hesaplaTemizlik = (gorev: TemizlikGorev, dersIndex: number) => {
+  const result: { grup: string; alan: string }[] = [];
+  for (let g = 0; g < gorev.grup_sayisi; g++) {
+    const alanIndex = (g + dersIndex) % gorev.temizlik_alanlari.length;
+    result.push({
+      grup: gorev.grup_isimleri[g] || `${g + 1}. Grup`,
+      alan: gorev.temizlik_alanlari[alanIndex],
+    });
+  }
+  return result;
+};
+
 export default function MarketPage() {
   const { yetkili, yukleniyor } = useAuth("/market");
   const [aktifHafta, setAktifHafta] = useState<string | null>(null);
   const [satirlar, setSatirlar] = useState<OzetSatir[]>([]);
   const [alinanlar, setAlinanlar] = useState<Set<string>>(new Set());
   const [veriYukleniyor, setVeriYukleniyor] = useState(true);
+  const [aktifSekme, setAktifSekme] = useState<"alisveris" | "temizlik">("alisveris");
+  const [temizlikGorevler, setTemizlikGorevler] = useState<TemizlikGorev[]>([]);
+  const [bugunDersIndex, setBugunDersIndex] = useState(0);
 
   useEffect(() => {
     if (!yetkili) return;
@@ -44,49 +65,64 @@ export default function MarketPage() {
 
     const { data: urunler } = await supabase
       .from("urunler")
-      .select("id, urun_adi, marka, stok, kategori");
+      .select("id, kategori");
 
-    const stokMap: Record<string, { stok: number; kategori: string }> = {};
+    const kategoriMap: Record<string, string> = {};
     (urunler || []).forEach((u: any) => {
-      // ID ile eşleştir — en güvenilir yöntem
-      stokMap[u.id] = {
-        stok: u.stok ?? 0,
-        kategori: u.kategori || "Diğer"
-      };
+      kategoriMap[u.id] = u.kategori || "Diğer";
     });
 
     const ozet: Record<string, OzetSatir> = {};
     (siparisler || []).forEach((s: any) => {
       (s.urunler || []).forEach((u: any) => {
         const key = `${u.urunAdi}__${u.marka || ""}__${u.olcu}`;
-        const stokBilgi = u.urunId ? stokMap[u.urunId] : null;
-        const stok = stokBilgi?.stok ?? 0;
-        const kategori = stokBilgi?.kategori || "Diğer";
+        const kategori = (u.urunId ? kategoriMap[u.urunId] : null) || "Diğer";
         if (!ozet[key]) {
           ozet[key] = {
             urunAdi: u.urunAdi, marka: u.marka, olcu: u.olcu,
             birimFiyat: u.birimFiyat, satinAlinacak: 0, kategori,
           };
         }
+        // Otomatik stok düşme YOK — satın alma sayfasıyla aynı mantık
         ozet[key].satinAlinacak += Number(u.miktar);
-        ozet[key].satinAlinacak = parseFloat(Math.max(0, ozet[key].satinAlinacak - stok).toFixed(3));
       });
     });
 
-    setSatirlar(
-      Object.values(ozet)
-        .filter(u => u.satinAlinacak > 0)
-        .sort((a, b) => a.kategori.localeCompare(b.kategori, "tr") || a.urunAdi.localeCompare(b.urunAdi, "tr"))
-    );
-
-    // Mevcut alınanları çek
+    // Mevcut alınanları çek (listeden çıkartılanlar dahil)
     const { data: alinanData } = await supabase
       .from("market_alinanlar")
-      .select("urun_key")
+      .select("urun_key, tip")
       .eq("hafta", hafta);
 
-    setAlinanlar(new Set((alinanData || []).map((r: any) => r.urun_key)));
+    const alinanlar_data = (alinanData || []);
+    // tip='alinan' olanlar → tik atılmış
+    const alinanSet = new Set(alinanlar_data.filter((r: any) => r.tip !== 'cikarildi').map((r: any) => r.urun_key));
+    // tip='cikarildi' olanlar → satın almadan çıkartılmış, gösterme
+    const cikarildiSet = new Set(alinanlar_data.filter((r: any) => r.tip === 'cikarildi').map((r: any) => r.urun_key));
+    setAlinanlar(alinanSet);
+
+    // Listeden çıkartılanları gösterme
+    setSatirlar(
+      Object.values(ozet)
+        .filter(u => u.satinAlinacak > 0 && !cikarildiSet.has(`${u.urunAdi}__${u.marka || ""}`))
+        .sort((a, b) => a.kategori.localeCompare(b.kategori, "tr") || a.urunAdi.localeCompare(b.urunAdi, "tr"))
+    );
     setVeriYukleniyor(false);
+
+    // Temizlik görevlerini çek (tüm öğretmenler)
+    const { data: temizlikData } = await supabase
+      .from("temizlik_gorevleri")
+      .select("*");
+    if (temizlikData) {
+      setTemizlikGorevler(temizlikData);
+      // Bugün kaçıncı ders?
+      if (temizlikData.length > 0) {
+        const baslangic = new Date(temizlikData[0].baslangic_tarihi);
+        const bugun = new Date();
+        const fark = Math.floor((bugun.getTime() - baslangic.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        setBugunDersIndex(Math.max(0, fark));
+      }
+    }
 
     // Realtime subscription
     const channel = supabase
@@ -98,13 +134,20 @@ export default function MarketPage() {
         filter: `hafta=eq.${hafta}`,
       }, (payload) => {
         if (payload.eventType === "INSERT") {
-          setAlinanlar(prev => new Set(prev).add((payload.new as any).urun_key));
+          const key = (payload.new as any).urun_key;
+          const tip = (payload.new as any).tip || 'alinan';
+          if (tip === 'cikarildi') {
+            // Satın almadan çıkartıldı — listeden kaldır
+            setSatirlar(prev => prev.filter(u => `${u.urunAdi}__${u.marka || ""}` !== key));
+          } else {
+            // Öğrenci tıkladı — üstü çizili yap
+            setAlinanlar(prev => new Set(prev).add(key));
+          }
         } else if (payload.eventType === "DELETE") {
-          setAlinanlar(prev => {
-            const next = new Set(prev);
-            next.delete((payload.old as any).urun_key);
-            return next;
-          });
+          const key = (payload.old as any).urun_key;
+          setAlinanlar(prev => { const next = new Set(prev); next.delete(key); return next; });
+          // Geri alındıysa listeyi yenile
+          fetchGorev();
         }
       })
       .subscribe();
@@ -129,7 +172,7 @@ export default function MarketPage() {
         .eq("urun_key", key);
     } else {
       await supabase.from("market_alinanlar")
-        .upsert({ hafta: aktifHafta, urun_key: key });
+        .upsert({ hafta: aktifHafta, urun_key: key, tip: 'alinan' });
     }
   };
 
@@ -160,6 +203,67 @@ export default function MarketPage() {
   return (
     <DashboardLayout title={`🛒 ${aktifHafta} Alışveriş`}>
       <div className="max-w-2xl mx-auto space-y-4">
+
+        {/* Sekmeler */}
+        <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-200 shadow-sm">
+          <button onClick={() => setAktifSekme("alisveris")}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${aktifSekme === "alisveris" ? "text-white" : "text-gray-500 hover:bg-gray-50"}`}
+            style={aktifSekme === "alisveris" ? { background: "#059669" } : {}}>
+            🛒 Alışveriş
+          </button>
+          <button onClick={() => setAktifSekme("temizlik")}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${aktifSekme === "temizlik" ? "text-white" : "text-gray-500 hover:bg-gray-50"}`}
+            style={aktifSekme === "temizlik" ? { background: "#2563EB" } : {}}>
+            🧹 Temizlik
+          </button>
+        </div>
+
+        {/* Temizlik Sekmesi */}
+        {aktifSekme === "temizlik" && (
+          <div className="space-y-4">
+            {temizlikGorevler.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center text-gray-400">
+                <p className="text-4xl mb-3">🧹</p>
+                <p className="font-semibold text-gray-600">Henüz temizlik görevi oluşturulmadı</p>
+                <p className="text-sm mt-1">Öğretmeniniz sisteme ekleyecek</p>
+              </div>
+            ) : temizlikGorevler.map((gorev) => {
+              const dagilim = hesaplaTemizlik(gorev, bugunDersIndex);
+              return (
+                <div key={gorev.id} className="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-blue-100 flex items-center justify-between" style={{ background: "#EFF6FF" }}>
+                    <div>
+                      <p className="font-bold text-blue-900 text-sm">{gorev.ders_adi}</p>
+                      <p className="text-xs text-blue-600">{gorev.ogretmen_adi} • {bugunDersIndex + 1}. Ders</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => setBugunDersIndex(Math.max(0, bugunDersIndex - 1))}
+                        className="text-xs px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">←</button>
+                      <button onClick={() => setBugunDersIndex(bugunDersIndex + 1)}
+                        className="text-xs px-2 py-1 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">→</button>
+                    </div>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 gap-2">
+                    {dagilim.map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-blue-50 rounded-xl px-4 py-3 border border-blue-100">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                          <span className="text-white text-xs font-bold">{i + 1}</span>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-blue-700">{item.grup}</p>
+                          <p className="text-sm font-semibold text-gray-800">{item.alan}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Alışveriş Sekmesi */}
+        {aktifSekme === "alisveris" && <>
 
         {/* İlerleme */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
@@ -260,6 +364,7 @@ export default function MarketPage() {
             Listeyi Sıfırla
           </button>
         )}
+        </>}
       </div>
     </DashboardLayout>
   );

@@ -119,7 +119,8 @@ export default function SatinAlmaPage() {
     // Tüm haftalar için yükle
     const { data: dususData } = await supabase
       .from("market_alinanlar")
-      .select("hafta, urun_key");
+      .select("hafta, urun_key")
+      .eq("tip", "cikarildi");
     if (dususData) {
       setDususYapildiSet(new Set(dususData.map((r: any) => `${r.hafta}__${r.urun_key}`)));
     }
@@ -127,7 +128,7 @@ export default function SatinAlmaPage() {
 
   const fetchMarketAlinanlar = async (hafta: string) => {
     if (!hafta || hafta === "tumu") { setAlinanlar(new Set()); return; }
-    const { data } = await supabase.from("market_alinanlar").select("urun_key").eq("hafta", hafta);
+    const { data } = await supabase.from("market_alinanlar").select("urun_key").eq("hafta", hafta).eq("tip", "alinan");
     setAlinanlar(new Set((data || []).map((r: any) => r.urun_key)));
   };
 
@@ -154,7 +155,7 @@ export default function SatinAlmaPage() {
     if (alindi) {
       await supabase.from("market_alinanlar").delete().eq("hafta", hafta).eq("urun_key", key);
     } else {
-      await supabase.from("market_alinanlar").upsert({ hafta, urun_key: key });
+      await supabase.from("market_alinanlar").upsert({ hafta, urun_key: key, tip: "alinan" });
     }
   };
 
@@ -229,7 +230,7 @@ export default function SatinAlmaPage() {
     const urunKey = `${satir.urunAdi}__${satir.marka || ""}`;
     const aktifHafta = secilenHafta !== "tumu" ? secilenHafta : null;
     if (aktifHafta) {
-      await supabase.from("market_alinanlar").upsert({ hafta: aktifHafta, urun_key: urunKey });
+      await supabase.from("market_alinanlar").upsert({ hafta: aktifHafta, urun_key: urunKey, tip: 'cikarildi' });
     }
     bildir("basari", `"${satir.urunAdi}" listeden çıkartıldı.`);
     if (aktifHafta) {
@@ -847,7 +848,7 @@ tr:nth-child(even) td{background:#fafafa}
               <div className="space-y-3">
                 {(() => {
                   const gruplar: Record<string, OzetSatir[]> = {};
-                  satirlar.filter(u => u.satinAlinacak > 0).forEach((u) => {
+                  satirlar.filter(u => u.satinAlinacak > 0 && !u.dususYapildi).forEach((u) => {
                     const kat = u.kategori || "Diger";
                     if (!gruplar[kat]) gruplar[kat] = [];
                     gruplar[kat].push(u);
