@@ -133,7 +133,7 @@ export default function SatinAlmaPage() {
   };
 
   useEffect(() => {
-    if (aktifSekme !== "market") return;
+    if (aktifSekme === "dashboard") return;
     const hafta = marketHafta || secilenHafta;
     fetchMarketAlinanlar(hafta);
     if (!hafta || hafta === "tumu") return;
@@ -241,7 +241,7 @@ export default function SatinAlmaPage() {
       return { ...prev, [key]: { id: satir.urunId!, stok: 0, kategori: satir.kategori, paketMiktari: satir.paketMiktari, paketBirimi: satir.paketBirimi } };
     });
     setSatirlar((prev) => prev.map((s, i) =>
-      i === idx ? { ...s, dususYapildi: true, depodaMiktar: 0, satinAlinacak: s.listeMiktar } : s
+      i === idx ? { ...s, dususYapildi: true, depodaMiktar: 0, satinAlinacak: 0 } : s
     ));
   };
 
@@ -266,7 +266,11 @@ export default function SatinAlmaPage() {
   };
 
   const genelToplam = satirlar.reduce((acc, u) => acc + u.toplamTutar, 0);
-  const satinAlinacakToplam = satirlar.reduce((acc, u) => acc + (u.birimFiyat * u.satinAlinacak), 0);
+  const satinAlinacakToplam = satirlar.reduce((acc, u) => {
+    const urunKey = `${u.urunAdi}__${u.marka || ""}`;
+    if (alinanlar.has(urunKey)) return acc;
+    return acc + (u.birimFiyat * u.satinAlinacak);
+  }, 0);
 
   // Dashboard istatistikleri
   const bekleyenler = siparisler.filter(s => s.durum === "bekliyor" && (s.tip || "haftalik") === "haftalik");
