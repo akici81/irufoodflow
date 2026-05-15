@@ -82,6 +82,7 @@ export default function SatinAlmaPage() {
       ogretmenAdi: s.ogretmen_adi as string,
       dersAdi: s.ders_adi as string,
       hafta: s.hafta as string,
+      market_haftasi: (s.market_haftasi as string) || null,
       urunler: (s.urunler as SiparisUrun[]) || [],
       genelToplam: s.genel_toplam as number,
       durum: (s.durum as string) || "bekliyor",
