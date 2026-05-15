@@ -73,7 +73,7 @@ export default function MarketPage() {
     });
 
     const ozet: Record<string, OzetSatir> = {};
-    (siparisler || []).forEach((s: any) => {
+    (siparisler || []).filter((s: any) => s.durum !== "tatil").forEach((s: any) => {
       (s.urunler || []).forEach((u: any) => {
         const key = `${u.urunAdi}__${u.marka || ""}__${u.olcu}`;
         const kategori = (u.urunId ? kategoriMap[u.urunId] : null) || "Diğer";
