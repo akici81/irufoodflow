@@ -267,6 +267,17 @@ export default function SatinAlmaPage() {
     bildir("basari", "Siparis durumu guncellendi.");
   };
 
+  const handleHaftaKaydır = async (sip: Siparis) => {
+    const match = sip.hafta.match(/^(\d+)\.\s*Hafta$/i);
+    if (!match) { bildir("hata", "Hafta formatı tanınamadı."); return; }
+    const yeniNo = parseInt(match[1]) + 1;
+    const yeniHafta = `${yeniNo}. Hafta`;
+    const { error } = await supabase.from("siparisler").update({ hafta: yeniHafta }).eq("id", sip.id);
+    if (error) { bildir("hata", "Hafta güncellenemedi."); return; }
+    setSiparisler(prev => prev.map(s => s.id === sip.id ? { ...s, hafta: yeniHafta } : s));
+    bildir("basari", `"${sip.ogretmenAdi}" siparişi ${sip.hafta} → ${yeniHafta} olarak kaydırıldı.`);
+  };
+
   const genelToplam = satirlar.reduce((acc, u) => acc + u.toplamTutar, 0);
   const satinAlinacakToplam = satirlar.reduce((acc, u) => {
     const urunKey = `${u.urunAdi}__${u.marka || ""}`;
@@ -542,6 +553,10 @@ tr:nth-child(even) td{background:#fafafa}
                                   className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                                   style={{ background: "#B71C1C" }}>
                                   Tatil
+                                </button>
+                                <button onClick={() => handleHaftaKaydır(s)}
+                                  className="text-xs font-semibold px-3 py-1 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition">
+                                  Kaydır →
                                 </button>
                                 <button onClick={() => handleDurumGuncelle(s.id, "onaylandi")}
                                   className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
