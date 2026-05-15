@@ -587,18 +587,44 @@ export default function AlisverisListeleriPage() {
                     <p className="text-gray-400 text-xs text-center py-4">Henuz urun secilmedi.</p>
                   ) : (
                     <>
-                      <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                        {secilenUrunListesi.map((u) => (
-                          <div key={u.urunId} className="flex justify-between items-start text-xs py-1.5 border-b border-gray-50">
-                            <div>
-                              <p className="font-medium text-gray-800">{u.urunAdi}</p>
-                              <p className="text-gray-400">{u.miktar} {u.olcu}</p>
+                      <div className="space-y-1 max-h-72 overflow-y-auto">
+                        {secilenUrunListesi.map((u) => {
+                          const urunObj = urunler.find(x => x.id === u.urunId);
+                          const bilgi = urunObj ? olcuBilgisi(urunObj.olcu) : { serbest: false, baslangic: 1, adim: 1 };
+                          const miktar = liste[u.urunId] ?? 0;
+                          return (
+                            <div key={u.urunId} className="py-1.5 border-b border-gray-50 text-xs">
+                              <div className="flex justify-between items-start mb-1">
+                                <p className="font-medium text-gray-800 leading-tight pr-1">{u.urunAdi}</p>
+                                <button
+                                  onClick={() => setListe(prev => { const y = { ...prev }; delete y[u.urunId]; return y; })}
+                                  className="text-gray-300 hover:text-red-500 shrink-0 text-base leading-none transition">×</button>
+                              </div>
+                              <div className="flex items-center justify-between gap-1">
+                                {bilgi.serbest ? (
+                                  <div className="flex items-center gap-1">
+                                    <input type="text" inputMode="decimal"
+                                      value={kgInputler[u.urunId] !== undefined ? kgInputler[u.urunId] : (miktar > 0 ? String(miktar).replace(".", ",") : "")}
+                                      onChange={(e) => handleKgInput(u.urunId, e.target.value)}
+                                      className="w-14 border border-gray-200 rounded px-1 py-0.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-red-500" />
+                                    <span className="text-gray-400">{u.olcu}</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => urunObj && handleAzalt(urunObj)}
+                                      className="w-5 h-5 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-600 font-bold transition">−</button>
+                                    <span className="text-center font-medium text-gray-700 min-w-[2.5rem]">{miktar} {u.olcu}</span>
+                                    <button onClick={() => urunObj && handleArttir(urunObj)}
+                                      className="w-5 h-5 flex items-center justify-center bg-red-100 hover:bg-red-200 rounded text-red-700 font-bold transition">+</button>
+                                  </div>
+                                )}
+                                <span className="text-gray-600 font-medium shrink-0">
+                                  {u.toplam > 0 ? `${u.toplam.toFixed(2)} TL` : "-"}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-gray-600 font-medium ml-2">
-                              {u.toplam > 0 ? `${u.toplam.toFixed(2)} TL` : "-"}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="border-t border-gray-200 pt-3 flex justify-between text-sm">
                         <span className="font-semibold text-gray-700">Hafta Toplami</span>
