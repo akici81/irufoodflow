@@ -40,6 +40,7 @@ const DURUM_STIL: Record<string, { bg: string; text: string; label: string }> = 
   bekliyor:      { bg: "#FEF3C7", text: "#92400E", label: "Bekliyor" },
   onaylandi:     { bg: "#D1FAE5", text: "#065F46", label: "Onaylandi" },
   teslim_alindi: { bg: "#DBEAFE", text: "#1E40AF", label: "Teslim Alindi" },
+  tatil:         { bg: "#FEE2E2", text: "#991B1B", label: "Tatil" },
 };
 
 export default function SatinAlmaPage() {
@@ -181,6 +182,7 @@ export default function SatinAlmaPage() {
   const dersler = ["tumu", ...Array.from(new Set(siparisler.map((s) => s.dersAdi))).sort()];
 
   const filtrelenmis = siparisler.filter((s) =>
+    s.durum !== "tatil" &&
     (secilenTip === "tumu" || (s.tip || "haftalik") === secilenTip) &&
     (secilenHafta === "tumu" || s.hafta === secilenHafta) &&
     (secilenDers === "tumu" || s.dersAdi === secilenDers)
@@ -276,6 +278,7 @@ export default function SatinAlmaPage() {
   const bekleyenler = siparisler.filter(s => s.durum === "bekliyor" && (s.tip || "haftalik") === "haftalik");
   const onaylananlar = siparisler.filter(s => s.durum === "onaylandi");
   const teslimler = siparisler.filter(s => s.durum === "teslim_alindi");
+  const tatiller = siparisler.filter(s => s.durum === "tatil");
   const bekleyenTutar = bekleyenler.reduce((acc, s) => acc + (s.genelToplam || 0), 0);
   const haftaBazli = Array.from(new Set(siparisler.map(s => s.hafta))).sort().slice(-3);
 
@@ -535,6 +538,11 @@ tr:nth-child(even) td{background:#fafafa}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="text-xs font-bold text-zinc-600">{Number(s.genelToplam || 0).toFixed(2)} TL</span>
+                                <button onClick={() => handleDurumGuncelle(s.id, "tatil")}
+                                  className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
+                                  style={{ background: "#B71C1C" }}>
+                                  Tatil
+                                </button>
                                 <button onClick={() => handleDurumGuncelle(s.id, "onaylandi")}
                                   className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                                   style={{ background: "#059669" }}>
@@ -595,6 +603,45 @@ tr:nth-child(even) td{background:#fafafa}
                                   className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                                   style={{ background: "#059669" }}>
                                   Satin Alindi
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Tatil siparisler */}
+            {tatiller.length > 0 && (
+              <div>
+                <h3 className="font-bold text-zinc-800 mb-3">
+                  Tatil — Atlandı <span className="text-zinc-400 font-normal text-sm">({tatiller.length} siparis)</span>
+                </h3>
+                <div className="space-y-3">
+                  {Array.from(new Set(tatiller.map(s => s.hafta))).sort().map(hafta => {
+                    const haftaTatiller = tatiller.filter(s => s.hafta === hafta);
+                    return (
+                      <div key={hafta} className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-red-100 flex items-center gap-2" style={{ background: "#FEF2F2" }}>
+                          <span className="text-xs font-black text-red-700 uppercase tracking-wider">{hafta}</span>
+                          <span className="text-xs text-red-500 font-medium">{haftaTatiller.length} siparis</span>
+                        </div>
+                        <div className="divide-y divide-zinc-50">
+                          {haftaTatiller.map((s) => (
+                            <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-zinc-500 truncate line-through">{s.ogretmenAdi}</p>
+                                <p className="text-xs text-zinc-400 truncate">{s.dersAdi}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs font-bold text-zinc-400">{Number(s.genelToplam || 0).toFixed(2)} TL</span>
+                                <button onClick={() => handleDurumGuncelle(s.id, "bekliyor")}
+                                  className="text-xs font-semibold px-3 py-1 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition">
+                                  Geri Al
                                 </button>
                               </div>
                             </div>
