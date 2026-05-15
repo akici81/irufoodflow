@@ -76,11 +76,14 @@ export default function MarketPage() {
 
     if (!hafta) { setVeriYukleniyor(false); return; }
 
-    // Siparişleri çek
-    const { data: siparisler } = await supabase
+    // Siparişleri çek — kendi haftası veya market_haftasi ile bu haftaya eklenmiş olanlar
+    const { data: tumSiparisler } = await supabase
       .from("siparisler")
       .select("*")
-      .eq("hafta", hafta);
+      .or(`hafta.eq.${hafta},market_haftasi.eq.${hafta}`);
+    const siparisler = (tumSiparisler || []).filter((s: any) =>
+      s.market_haftasi === hafta || (s.hafta === hafta && !s.market_haftasi)
+    );
 
     const { data: urunler } = await supabase
       .from("urunler")

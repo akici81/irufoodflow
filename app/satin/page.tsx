@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
 
 type SiparisUrun = { urunId?: string; urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
-type Siparis = { id: string; ogretmenAdi: string; dersAdi: string; hafta: string; urunler: SiparisUrun[]; genelToplam: number; durum: string; tarih: string; tip: string; };
+type Siparis = { id: string; ogretmenAdi: string; dersAdi: string; hafta: string; market_haftasi?: string | null; urunler: SiparisUrun[]; genelToplam: number; durum: string; tarih: string; tip: string; };
 type OzetSatir = {
   urunAdi: string; marka: string; olcu: string;
   listeMiktar: number; depodaMiktar: number; satinAlinacak: number;
@@ -184,7 +184,7 @@ export default function SatinAlmaPage() {
   const filtrelenmis = siparisler.filter((s) =>
     s.durum !== "tatil" &&
     (secilenTip === "tumu" || (s.tip || "haftalik") === secilenTip) &&
-    (secilenHafta === "tumu" || s.hafta === secilenHafta) &&
+    (secilenHafta === "tumu" || s.market_haftasi === secilenHafta || (s.hafta === secilenHafta && !s.market_haftasi)) &&
     (secilenDers === "tumu" || s.dersAdi === secilenDers)
   );
 
@@ -267,15 +267,11 @@ export default function SatinAlmaPage() {
     bildir("basari", "Siparis durumu guncellendi.");
   };
 
-  const handleHaftaKaydır = async (sip: Siparis) => {
-    const match = sip.hafta.match(/^(\d+)\.\s*Hafta$/i);
-    if (!match) { bildir("hata", "Hafta formatı tanınamadı."); return; }
-    const yeniNo = parseInt(match[1]) + 1;
-    const yeniHafta = `${yeniNo}. Hafta`;
-    const { error } = await supabase.from("siparisler").update({ hafta: yeniHafta }).eq("id", sip.id);
-    if (error) { bildir("hata", "Hafta güncellenemedi."); return; }
-    setSiparisler(prev => prev.map(s => s.id === sip.id ? { ...s, hafta: yeniHafta } : s));
-    bildir("basari", `"${sip.ogretmenAdi}" siparişi ${sip.hafta} → ${yeniHafta} olarak kaydırıldı.`);
+  const handleMarketHaftasiAyarla = async (sipId: string, hedefHafta: string | null) => {
+    const { error } = await supabase.from("siparisler").update({ market_haftasi: hedefHafta }).eq("id", sipId);
+    if (error) { bildir("hata", "Güncellenemedi."); return; }
+    setSiparisler(prev => prev.map(s => s.id === sipId ? { ...s, market_haftasi: hedefHafta } : s));
+    bildir("basari", hedefHafta ? `Sipariş ${hedefHafta} market listesine eklendi.` : "Sipariş market listesinden çıkartıldı.");
   };
 
   const genelToplam = satirlar.reduce((acc, u) => acc + u.toplamTutar, 0);
@@ -554,10 +550,20 @@ tr:nth-child(even) td{background:#fafafa}
                                   style={{ background: "#B71C1C" }}>
                                   Tatil
                                 </button>
-                                <button onClick={() => handleHaftaKaydır(s)}
-                                  className="text-xs font-semibold px-3 py-1 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50 transition">
-                                  Kaydır →
-                                </button>
+                                {ogrenciHafta && s.hafta !== ogrenciHafta && (
+                                  s.market_haftasi === ogrenciHafta ? (
+                                    <button onClick={() => handleMarketHaftasiAyarla(s.id, null)}
+                                      className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
+                                      style={{ background: "#0284c7" }}>
+                                      ✓ {ogrenciHafta} Çıkart
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => handleMarketHaftasiAyarla(s.id, ogrenciHafta)}
+                                      className="text-xs font-semibold px-3 py-1 rounded-lg border border-sky-300 text-sky-600 hover:bg-sky-50 transition">
+                                      + {ogrenciHafta} Market
+                                    </button>
+                                  )
+                                )}
                                 <button onClick={() => handleDurumGuncelle(s.id, "onaylandi")}
                                   className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                                   style={{ background: "#059669" }}>
