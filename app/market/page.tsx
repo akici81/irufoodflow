@@ -8,6 +8,25 @@ import { supabase } from "@/lib/supabase";
 type OzetSatir = {
   urunAdi: string; marka: string; olcu: string;
   satinAlinacak: number; birimFiyat: number; kategori: string;
+  paketMiktari: number | null; paketBirimi: string;
+};
+
+const formatMiktar = (miktar: number, olcu: string, paketMiktari: number | null, paketBirimi: string): string => {
+  if (miktar <= 0) return "-";
+  const birim = paketBirimi || olcu;
+  const base = `${parseFloat(miktar.toFixed(3))} ${birim}`;
+  if (!paketMiktari || paketMiktari <= 0) return base;
+  const adet = miktar / paketMiktari;
+  const tam = Math.floor(adet);
+  const kalan = adet - tam;
+  let paketStr: string;
+  if (kalan < 0.05) paketStr = `${tam} paket`;
+  else if (kalan >= 0.95) paketStr = `${tam + 1} paket`;
+  else {
+    const kesir = kalan >= 0.6 ? "¾" : kalan >= 0.4 ? "½" : "¼";
+    paketStr = tam > 0 ? `${tam} ${kesir} paket` : `${kesir} paket`;
+  }
+  return `${base} (${paketStr})`;
 };
 
 type TemizlikGorev = {
@@ -65,22 +84,29 @@ export default function MarketPage() {
 
     const { data: urunler } = await supabase
       .from("urunler")
-      .select("id, kategori");
+      .select("id, kategori, paket_miktari, paket_birimi");
 
-    const kategoriMap: Record<string, string> = {};
+    const urunInfoMap: Record<string, { kategori: string; paketMiktari: number | null; paketBirimi: string }> = {};
     (urunler || []).forEach((u: any) => {
-      kategoriMap[u.id] = u.kategori || "Diğer";
+      urunInfoMap[u.id] = {
+        kategori: u.kategori || "Diğer",
+        paketMiktari: u.paket_miktari ?? null,
+        paketBirimi: u.paket_birimi ?? "",
+      };
     });
 
     const ozet: Record<string, OzetSatir> = {};
     (siparisler || []).filter((s: any) => s.durum !== "tatil").forEach((s: any) => {
       (s.urunler || []).forEach((u: any) => {
         const key = `${u.urunAdi}__${u.marka || ""}__${u.olcu}`;
-        const kategori = (u.urunId ? kategoriMap[u.urunId] : null) || "Diğer";
+        const info = (u.urunId ? urunInfoMap[u.urunId] : null);
+        const kategori = info?.kategori || "Diğer";
         if (!ozet[key]) {
           ozet[key] = {
             urunAdi: u.urunAdi, marka: u.marka, olcu: u.olcu,
             birimFiyat: u.birimFiyat, satinAlinacak: 0, kategori,
+            paketMiktari: info?.paketMiktari ?? null,
+            paketBirimi: info?.paketBirimi ?? "",
           };
         }
         // Otomatik stok düşme YOK — satın alma sayfasıyla aynı mantık
@@ -334,7 +360,7 @@ export default function MarketPage() {
                     </div>
                     <div className="w-20 text-center shrink-0">
                       <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-red-700"}`}>
-                        {u.satinAlinacak} {u.olcu}
+                        {formatMiktar(u.satinAlinacak, u.olcu, u.paketMiktari, u.paketBirimi)}
                       </p>
                     </div>
                     <div className="w-24 text-right shrink-0">
