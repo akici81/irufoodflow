@@ -330,6 +330,9 @@ export default function MarketPage() {
               <div className="flex items-center px-4 py-1 border-t border-white/10">
                 <div className="flex-1" />
                 <div className="w-20 text-center">
+                  <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Paket Boyutu</span>
+                </div>
+                <div className="w-20 text-center">
                   <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alınacak</span>
                 </div>
                 <div className="w-24 text-right">
@@ -357,6 +360,13 @@ export default function MarketPage() {
                       {u.marka && (
                         <p className="text-xs text-gray-400 mt-0.5">{u.marka}</p>
                       )}
+                    </div>
+                    <div className="w-20 text-center shrink-0">
+                      {u.paketMiktari ? (
+                        <p className={`text-xs font-medium ${alindi ? "text-gray-300" : "text-gray-500"}`}>
+                          {u.paketMiktari} {u.paketBirimi}
+                        </p>
+                      ) : <span />}
                     </div>
                     <div className="w-20 text-center shrink-0">
                       <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-red-700"}`}>

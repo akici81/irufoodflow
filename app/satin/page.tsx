@@ -916,6 +916,9 @@ tr:nth-child(even) td{background:#fafafa}
                         </div>
                         <div className="flex items-center px-4 py-1 border-t border-white/10">
                           <div className="flex-1" />
+                          <div className="w-20 text-center">
+                            <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Paket Boyutu</span>
+                          </div>
                           <div className="w-24 text-center">
                             <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Alınacak</span>
                           </div>
@@ -951,6 +954,14 @@ tr:nth-child(even) td{background:#fafafa}
                                     {Object.entries(u.hocalar).map(([hoca, miktar]) => `${hoca} (${parseFloat(Number(miktar).toFixed(3))} ${u.olcu})`).join(" · ")}
                                   </p>
                                 )}
+                              </div>
+                              {/* Paket Boyutu */}
+                              <div className="w-20 text-center shrink-0">
+                                {u.paketMiktari ? (
+                                  <p className={`text-xs font-medium ${alindi ? "text-gray-300" : "text-gray-500"}`}>
+                                    {u.paketMiktari} {u.paketBirimi}
+                                  </p>
+                                ) : <span />}
                               </div>
                               {/* Alınacak miktar */}
                               <div className="w-24 text-center shrink-0">
