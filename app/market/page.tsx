@@ -360,7 +360,7 @@ export default function MarketPage() {
                     </div>
                     <div className="w-20 text-center shrink-0">
                       <p className={`text-sm font-bold ${alindi ? "text-gray-300" : "text-red-700"}`}>
-                        {formatMiktar(u.satinAlinacak, u.olcu, u.paketMiktari, u.paketBirimi)}
+                        {parseFloat(u.satinAlinacak.toFixed(3))} {u.olcu}
                       </p>
                     </div>
                     <div className="w-24 text-right shrink-0">
