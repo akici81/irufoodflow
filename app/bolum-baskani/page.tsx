@@ -64,6 +64,10 @@ export default function BolumBaskaniPage() {
   // Sipariş filtreleri
   const [sipFiltreHafta, setSipFiltreHafta] = useState("tumu"); const [sipFiltreDurum, setSipFiltreDurum] = useState("tumu"); const [sipDetay, setSipDetay] = useState<Siparis | null>(null);
 
+  // Toplu onay için seçili sipariş id'leri
+  const [secilenSiparisler, setSecilenSiparisler] = useState<Set<string>>(new Set());
+  const [topluOnayYukleniyor, setTopluOnayYukleniyor] = useState(false);
+
   // Ürün havuzu
   const [urunForm, setUrunForm] = useState<Omit<Urun, "id">>(BOSH_URUN); const [duzenleUrunId, setDuzenleUrunId] = useState<string | null>(null); const [urunPanel, setUrunPanel] = useState(false);
   const [urunArama, setUrunArama] = useState(""); const [urunKategori, setUrunKategori] = useState("Tümü");
@@ -154,6 +158,36 @@ export default function BolumBaskaniPage() {
     await supabase.from("siparisler").update({ durum }).eq("id", id);
     setSiparisler((prev) => prev.map((s) => s.id === id ? { ...s, durum: durum as Siparis["durum"] } : s));
     if (sipDetay?.id === id) setSipDetay((prev) => prev ? { ...prev, durum: durum as Siparis["durum"] } : null);
+  };
+
+  // Toplu onay — seçili bekleyen siparişleri tek seferde onayla
+  const handleTopluOnayla = async () => {
+    if (secilenSiparisler.size === 0) return;
+    setTopluOnayYukleniyor(true);
+    const idler = Array.from(secilenSiparisler);
+    // Yalnızca "bekliyor" durumundakileri güncelle
+    await supabase.from("siparisler").update({ durum: "onaylandi" }).in("id", idler).eq("durum", "bekliyor");
+    setSiparisler((prev) =>
+      prev.map((s) => idler.includes(s.id) && s.durum === "bekliyor" ? { ...s, durum: "onaylandi" } : s)
+    );
+    setSecilenSiparisler(new Set());
+    setTopluOnayYukleniyor(false);
+    bildir("basari", `${idler.length} sipariş onaylandı.`);
+  };
+
+  const toggleSiparisSecim = (id: string) => {
+    setSecilenSiparisler((prev) => {
+      const yeni = new Set(prev);
+      yeni.has(id) ? yeni.delete(id) : yeni.add(id);
+      return yeni;
+    });
+  };
+
+  const tumBekleyenleriSec = () => {
+    const bekleyenIdler = filtreliSiparisler.filter((s) => s.durum === "bekliyor").map((s) => s.id);
+    // Hepsi zaten seçiliyse seçimi temizle
+    const hepsiSecili = bekleyenIdler.every((id) => secilenSiparisler.has(id));
+    setSecilenSiparisler(hepsiSecili ? new Set() : new Set(bekleyenIdler));
   };
 
   // Ürün işlemleri
@@ -791,19 +825,28 @@ export default function BolumBaskaniPage() {
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-wrap gap-3 items-center">
               <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Hafta</label>
-                <select value={sipFiltreHafta} onChange={(e) => setSipFiltreHafta(e.target.value)} className="border border-gray-200 rounded-xl px-4 py-2 text-sm text-black bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+                <select value={sipFiltreHafta} onChange={(e) => { setSipFiltreHafta(e.target.value); setSecilenSiparisler(new Set()); }} className="border border-gray-200 rounded-xl px-4 py-2 text-sm text-black bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
                   {sipHaftalar.map((h) => <option key={h} value={h}>{h === "tumu" ? "Tüm Haftalar" : h}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Durum</label>
-                <select value={sipFiltreDurum} onChange={(e) => setSipFiltreDurum(e.target.value)} className="border border-gray-200 rounded-xl px-4 py-2 text-sm text-black bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+                <select value={sipFiltreDurum} onChange={(e) => { setSipFiltreDurum(e.target.value); setSecilenSiparisler(new Set()); }} className="border border-gray-200 rounded-xl px-4 py-2 text-sm text-black bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
                   <option value="tumu">Tüm Durumlar</option>
                   <option value="bekliyor">⏳ Bekliyor</option>
                   <option value="onaylandi">✅ Onaylandı</option>
                   <option value="teslim_alindi">📦 Teslim Alındı</option>
                 </select>
               </div>
+              {secilenSiparisler.size > 0 && (
+                <button
+                  onClick={handleTopluOnayla}
+                  disabled={topluOnayYukleniyor}
+                  className="ml-2 flex items-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl transition"
+                >
+                  {topluOnayYukleniyor ? "Onaylanıyor..." : `✅ ${secilenSiparisler.size} Siparişi Onayla`}
+                </button>
+              )}
               <div className="ml-auto text-xs text-gray-400">{filtreliSiparisler.length} sipariş</div>
             </div>
 
@@ -817,12 +860,32 @@ export default function BolumBaskaniPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100 text-left">
+                        <th className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            title="Tüm bekleyenleri seç"
+                            checked={filtreliSiparisler.filter((s) => s.durum === "bekliyor").length > 0 &&
+                              filtreliSiparisler.filter((s) => s.durum === "bekliyor").every((s) => secilenSiparisler.has(s.id))}
+                            onChange={tumBekleyenleriSec}
+                            className="rounded"
+                          />
+                        </th>
                         {["ÖĞRETMEN", "DERS", "HAFTA", "DURUM", "İŞLEM"].map((h) => <th key={h} className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>)}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {filtreliSiparisler.map((s) => (
-                        <tr key={s.id} className={`hover:bg-gray-50 transition-colors cursor-pointer ${sipDetay?.id === s.id ? "bg-blue-50" : ""}`} onClick={() => setSipDetay(sipDetay?.id === s.id ? null : s)}>
+                        <tr key={s.id} className={`hover:bg-gray-50 transition-colors cursor-pointer ${sipDetay?.id === s.id ? "bg-blue-50" : ""} ${secilenSiparisler.has(s.id) ? "bg-blue-50/60" : ""}`} onClick={() => setSipDetay(sipDetay?.id === s.id ? null : s)}>
+                          <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                            {s.durum === "bekliyor" && (
+                              <input
+                                type="checkbox"
+                                checked={secilenSiparisler.has(s.id)}
+                                onChange={() => toggleSiparisSecim(s.id)}
+                                className="rounded"
+                              />
+                            )}
+                          </td>
                           <td className="px-4 py-3 font-medium text-gray-800">{s.ogretmenAdi}</td>
                           <td className="px-4 py-3 text-gray-500 text-xs">{s.dersAdi}</td>
                           <td className="px-4 py-3 text-gray-500">{s.hafta}</td>

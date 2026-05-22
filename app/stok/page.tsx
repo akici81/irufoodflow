@@ -157,6 +157,20 @@ export default function StokPage() {
 
   const stokluUrun = urunler.filter((u) => u.stok > 0).length;
 
+  // Düşük stok uyarı seviyeleri
+  // kritik: stok = 0  → kırmızı
+  // dusuk:  stok ≤ 5  → turuncu
+  // dikkat: stok ≤ 15 → sarı
+  // normal: stok > 15 → yeşil
+  const stokUyari = (stok: number): { renk: string; bg: string; etiket: string } | null => {
+    if (stok <= 0)  return { renk: "#991B1B", bg: "#FEE2E2", etiket: "Tükendi" };
+    if (stok <= 5)  return { renk: "#92400E", bg: "#FEF3C7", etiket: "Kritik" };
+    if (stok <= 15) return { renk: "#D97706", bg: "#FFFBEB", etiket: "Az" };
+    return null; // normal stok → uyarı yok
+  };
+
+  const dusukStokSayisi = urunler.filter((u) => u.stok <= 15).length;
+
   // Sayım modunu başlat
   const sayimBaslat = () => {
     setSayimModu(true);
@@ -555,11 +569,12 @@ tr:nth-child(even) td{background:#fafafa}
         )}
 
         {/* İstatistik Kartları */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Toplam Ürün", deger: urunler.length, renk: "text-gray-800" },
-            { label: "Stokta Var", deger: stokluUrun, renk: "text-emerald-600" },
-            { label: "Stok Yok", deger: urunler.length - stokluUrun, renk: "text-red-600" },
+            { label: "Toplam Ürün",   deger: urunler.length,                       renk: "text-gray-800" },
+            { label: "Stokta Var",    deger: stokluUrun,                            renk: "text-emerald-600" },
+            { label: "Stok Yok",      deger: urunler.length - stokluUrun,           renk: "text-red-600" },
+            { label: "Düşük / Kritik",deger: dusukStokSayisi,                       renk: "text-amber-600" },
           ].map((k) => (
             <div key={k.label} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-center">
               <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">{k.label}</p>
@@ -567,6 +582,21 @@ tr:nth-child(even) td{background:#fafafa}
             </div>
           ))}
         </div>
+
+        {/* Düşük Stok Uyarı Bandı */}
+        {dusukStokSayisi > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-800">
+                {dusukStokSayisi} ürünün stoğu düşük veya tükendi
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                Stok = 0 → Tükendi (kırmızı) · Stok ≤ 5 → Kritik (turuncu) · Stok ≤ 15 → Az (sarı)
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Miktar Giriş Rehberi */}
         <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
@@ -688,9 +718,20 @@ tr:nth-child(even) td{background:#fafafa}
                             Kaydet
                           </button>
                         )}
-                        {!kaydediliyor[u.id] && !degisti && deger > 0 && (
-                          <span className="text-xs text-emerald-500 font-medium">✓</span>
-                        )}
+                        {!kaydediliyor[u.id] && !degisti && (() => {
+                          const uyari = stokUyari(u.stok);
+                          if (uyari) {
+                            return (
+                              <span
+                                className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
+                                style={{ background: uyari.bg, color: uyari.renk }}
+                              >
+                                ⚠ {uyari.etiket}
+                              </span>
+                            );
+                          }
+                          return <span className="text-xs text-emerald-500 font-medium">✓</span>;
+                        })()}
                       </td>
                     </tr>
                   );

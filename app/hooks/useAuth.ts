@@ -3,6 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+// Bölüm başkanı rol adı DB'de iki biçimde gelebilir ("bolum_baskani" veya "bolum-baskani").
+// Tek bir sabit tanımlanıp her ikisi de aynı diziye referans verir; böylece tutarsızlık ortadan kalkar.
+const BOLUM_BASKANI_SAYFALAR = [
+  "/bolum-baskani",
+  "/bolum-baskani/envanter-sayim",
+  "/dersler",
+  "/ders-programi",
+  "/etkinlik-takvimi",
+  "/urun-havuzu",
+];
+
 const ROL_IZINLERI: Record<string, string[]> = {
   admin: [
     "/admin",
@@ -33,22 +44,8 @@ const ROL_IZINLERI: Record<string, string[]> = {
     "/stok",
     "/urun-havuzu",
   ],
-  bolum_baskani: [
-    "/bolum-baskani",
-    "/bolum-baskani/envanter-sayim",
-    "/dersler",
-    "/ders-programi",
-    "/etkinlik-takvimi",
-    "/urun-havuzu",
-  ],
-  "bolum-baskani": [
-    "/bolum-baskani",
-    "/bolum-baskani/envanter-sayim",
-    "/dersler",
-    "/ders-programi",
-    "/etkinlik-takvimi",
-    "/urun-havuzu",
-  ],
+  bolum_baskani:  BOLUM_BASKANI_SAYFALAR,
+  "bolum-baskani": BOLUM_BASKANI_SAYFALAR,
   ogrenci: [
     "/market",
   ],
