@@ -5,6 +5,8 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+import { useDebounce } from "../hooks/useDebounce";
 
 type UrunStok = { 
   id: string; 
@@ -115,11 +117,12 @@ export default function StokPage() {
     setStokMap((prev) => ({ ...prev, [id]: rounded }));
   };
 
-  // Filtreleme
+  // Filtreleme (debounce ile)
+  const gecikmeliArama = useDebounce(aramaMetni, 300);
   const filtrelenmis = urunler.filter((u) => {
-    const aramaUygun = !aramaMetni ||
-      (u.urunAdi || "").toLowerCase().includes(aramaMetni.toLowerCase()) ||
-      (u.marka || "").toLowerCase().includes(aramaMetni.toLowerCase());
+    const aramaUygun = !gecikmeliArama ||
+      (u.urunAdi || "").toLowerCase().includes(gecikmeliArama.toLowerCase()) ||
+      (u.marka || "").toLowerCase().includes(gecikmeliArama.toLowerCase());
     const kategoriUygun = secilenKategori === "tumu" || u.kategori === secilenKategori;
     return aramaUygun && kategoriUygun;
   });
@@ -425,7 +428,7 @@ tr:nth-child(even) td{background:#fafafa}
     return d.toLocaleDateString("tr-TR");
   };
 
-  if (authYukleniyor || !yetkili) return null;
+  if (authYukleniyor || !yetkili) return <LoadingSkeleton />;
   
   return (
     <DashboardLayout title="Stok Paneli" subtitle="Depodaki mevcut ürün miktarlarını girin">

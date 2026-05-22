@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import DashboardLayout from "../components/DashboardLayout";
 import { supabase } from "@/lib/supabase";
+import { DURUM_CLASS, DURUM_LABEL, DURUM_PANEL, RENK_MAP, HAFTALAR, OLCU_SEC } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 // Tipler
 type Ders = { id: string; kod: string; ad: string };
@@ -22,23 +24,7 @@ const ROLLER = [
 ];
 const ROL_LABEL: Record<string, string> = { ogretmen: "Öğretmen", "bolum-baskani": "Bölüm Başkanı", stok: "Stok Sorumlusu", satin: "Satın Alma", admin: "Admin" };
 const ROL_RENK: Record<string, string> = { ogretmen: "bg-blue-100 text-blue-700", "bolum-baskani": "bg-purple-100 text-purple-700", stok: "bg-amber-100 text-amber-700", satin: "bg-emerald-100 text-emerald-700" };
-const DURUM_STIL: Record<string, string> = { bekliyor: "bg-amber-100 text-amber-700 border-amber-200", onaylandi: "bg-blue-100 text-blue-700 border-blue-200", teslim_alindi: "bg-emerald-100 text-emerald-700 border-emerald-200" };
-const DURUM_LABEL: Record<string, string> = { bekliyor: "⏳ Bekliyor", onaylandi: "✅ Onaylandı", teslim_alindi: "📦 Teslim Alındı" };
-const DURUM_STIL_PANEL: Record<string, { bg: string; text: string; label: string }> = {
-  bekliyor:      { bg: "#FEF3C7", text: "#92400E", label: "Bekliyor" },
-  onaylandi:     { bg: "#D1FAE5", text: "#065F46", label: "Onaylandı" },
-  teslim_alindi: { bg: "#DBEAFE", text: "#1E40AF", label: "Teslim Alındı" },
-};
-const RENK_MAP: Record<string, { bg: string; text: string }> = {
-  kirmizi: { bg: "#FEE2E2", text: "#991B1B" },
-  sari:    { bg: "#FEF3C7", text: "#92400E" },
-  mavi:    { bg: "#DBEAFE", text: "#1D4ED8" },
-  yesil:   { bg: "#D1FAE5", text: "#065F46" },
-  mor:     { bg: "#EDE9FE", text: "#5B21B6" },
-  turuncu: { bg: "#FFEDD5", text: "#9A3412" },
-};
-const HAFTALAR = Array.from({ length: 10 }, (_, i) => `${i + 1}. Hafta`);
-const OLCU_SEC = ["Kg", "L", "Paket", "Adet", "G", "Ml", "Kutu"];
+// Sabitler @/lib/constants'dan import edildi (DURUM_CLASS, DURUM_LABEL, DURUM_PANEL, RENK_MAP, HAFTALAR, OLCU_SEC)
 const BOSH_URUN: Omit<Urun, "id"> = { urunAdi: "", marka: "", fiyat: 0, olcu: "Kg", kategori: "", market: "", stok: 0, kod: "", notlar: "" };
 
 type Sekme = "panel" | "kullanici" | "listeler" | "siparisler" | "urunler";
@@ -173,6 +159,20 @@ export default function BolumBaskaniPage() {
     setSecilenSiparisler(new Set());
     setTopluOnayYukleniyor(false);
     bildir("basari", `${idler.length} sipariş onaylandı.`);
+  };
+
+  // Toplu reddet — seçili bekleyen siparişleri tek seferde reddet
+  const handleTopluReddet = async () => {
+    if (secilenSiparisler.size === 0) return;
+    setTopluOnayYukleniyor(true);
+    const idler = Array.from(secilenSiparisler);
+    await supabase.from("siparisler").update({ durum: "reddedildi" }).in("id", idler).eq("durum", "bekliyor");
+    setSiparisler((prev) =>
+      prev.map((s) => idler.includes(s.id) && s.durum === "bekliyor" ? { ...s, durum: "reddedildi" as Siparis["durum"] } : s)
+    );
+    setSecilenSiparisler(new Set());
+    setTopluOnayYukleniyor(false);
+    bildir("basari", `${idler.length} sipariş reddedildi.`);
   };
 
   const toggleSiparisSecim = (id: string) => {
@@ -599,7 +599,7 @@ export default function BolumBaskaniPage() {
                   {siparisler.length === 0 ? (
                     <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henüz sipariş yok</p>
                   ) : siparisler.slice(0, 6).map((s) => {
-                    const d = DURUM_STIL_PANEL[s.durum] || DURUM_STIL_PANEL.bekliyor;
+                    const d = DURUM_PANEL[s.durum] || DURUM_PANEL.bekliyor;
                     return (
                       <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -836,16 +836,26 @@ export default function BolumBaskaniPage() {
                   <option value="bekliyor">⏳ Bekliyor</option>
                   <option value="onaylandi">✅ Onaylandı</option>
                   <option value="teslim_alindi">📦 Teslim Alındı</option>
+                  <option value="reddedildi">❌ Reddedildi</option>
                 </select>
               </div>
               {secilenSiparisler.size > 0 && (
-                <button
-                  onClick={handleTopluOnayla}
-                  disabled={topluOnayYukleniyor}
-                  className="ml-2 flex items-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl transition"
-                >
-                  {topluOnayYukleniyor ? "Onaylanıyor..." : `✅ ${secilenSiparisler.size} Siparişi Onayla`}
-                </button>
+                <>
+                  <button
+                    onClick={handleTopluOnayla}
+                    disabled={topluOnayYukleniyor}
+                    className="ml-2 flex items-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl transition"
+                  >
+                    {topluOnayYukleniyor ? "İşleniyor..." : `✅ ${secilenSiparisler.size} Siparişi Onayla`}
+                  </button>
+                  <button
+                    onClick={handleTopluReddet}
+                    disabled={topluOnayYukleniyor}
+                    className="flex items-center gap-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl transition"
+                  >
+                    {topluOnayYukleniyor ? "İşleniyor..." : `❌ ${secilenSiparisler.size} Siparişi Reddet`}
+                  </button>
+                </>
               )}
               <div className="ml-auto text-xs text-gray-400">{filtreliSiparisler.length} sipariş</div>
             </div>
@@ -889,10 +899,11 @@ export default function BolumBaskaniPage() {
                           <td className="px-4 py-3 font-medium text-gray-800">{s.ogretmenAdi}</td>
                           <td className="px-4 py-3 text-gray-500 text-xs">{s.dersAdi}</td>
                           <td className="px-4 py-3 text-gray-500">{s.hafta}</td>
-                          <td className="px-4 py-3"><span className={`text-xs font-medium px-2 py-1 rounded-full border ${DURUM_STIL[s.durum]}`}>{DURUM_LABEL[s.durum]}</span></td>
+                          <td className="px-4 py-3"><span className={`text-xs font-medium px-2 py-1 rounded-full border ${DURUM_CLASS[s.durum]}`}>{DURUM_LABEL[s.durum]}</span></td>
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex gap-1">
                               {s.durum === "bekliyor" && <button onClick={() => handleDurumGuncelle(s.id, "onaylandi")} className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium px-2.5 py-1.5 rounded-lg transition">Onayla</button>}
+                              {s.durum === "bekliyor" && <button onClick={() => handleDurumGuncelle(s.id, "reddedildi")} className="text-xs bg-red-600 hover:bg-red-700 text-white font-medium px-2.5 py-1.5 rounded-lg transition">Reddet</button>}
                               {s.durum === "onaylandi" && <button onClick={() => handleDurumGuncelle(s.id, "teslim_alindi")} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-2.5 py-1.5 rounded-lg transition">Teslim</button>}
                               {s.durum !== "bekliyor" && <button onClick={() => handleDurumGuncelle(s.id, "bekliyor")} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium px-2.5 py-1.5 rounded-lg transition">Geri Al</button>}
                             </div>
@@ -914,7 +925,7 @@ export default function BolumBaskaniPage() {
                     <p><span className="font-medium text-gray-700">Öğretmen:</span> {sipDetay.ogretmenAdi}</p>
                     <p><span className="font-medium text-gray-700">Ders:</span> {sipDetay.dersAdi}</p>
                     <p><span className="font-medium text-gray-700">Hafta:</span> {sipDetay.hafta}</p>
-                    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${DURUM_STIL[sipDetay.durum]}`}>{DURUM_LABEL[sipDetay.durum]}</span>
+                    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${DURUM_CLASS[sipDetay.durum]}`}>{DURUM_LABEL[sipDetay.durum]}</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {(sipDetay.urunler || []).length === 0 ? (

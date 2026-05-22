@@ -5,19 +5,12 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { DURUM_CLASS, DURUM_LABEL } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type SiparisUrun = { urunId: string; urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
 type Siparis = { id: string; ogretmenId: number; ogretmenAdi: string; dersId: string; dersAdi: string; hafta: string; urunler: SiparisUrun[]; genelToplam: number; tarih: string; durum: "bekliyor" | "onaylandi" | "teslim_alindi" };
 type KiyasItem = { urunId: string; urunAdi: string; olcu: string; toplamTalep: number; hocalar: string[]; mevcutStok: number; paketMiktari: number | null; eksikMiktar: number; siparisEdilecekPaket: number | null; tamKarsilandi: boolean };
-
-const DURUM_STIL: Record<string, string> = {
-  bekliyor: "bg-amber-100 text-amber-700 border-amber-200",
-  onaylandi: "bg-blue-100 text-blue-700 border-blue-200",
-  teslim_alindi: "bg-emerald-100 text-emerald-700 border-emerald-200",
-};
-const DURUM_LABEL: Record<string, string> = {
-  bekliyor: "⏳ Bekliyor", onaylandi: "✓ Onaylandı", teslim_alindi: "✓ Teslim Alındı",
-};
 
 export default function SiparislerPage() {
   const { yetkili, yukleniyor } = useAuth("/siparisler");
@@ -144,7 +137,7 @@ export default function SiparislerPage() {
   const onaylananSayisi = siparisler.filter((s) => s.durum === "onaylandi").length;
   const teslimSayisi = siparisler.filter((s) => s.durum === "teslim_alindi").length;
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <>
@@ -248,7 +241,7 @@ export default function SiparislerPage() {
                           {s.genelToplam > 0 ? `₺${s.genelToplam.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}` : "—"}
                         </td>
                         <td className="px-5 py-3">
-                          <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${DURUM_STIL[s.durum]}`}>{DURUM_LABEL[s.durum]}</span>
+                          <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${DURUM_CLASS[s.durum]}`}>{DURUM_LABEL[s.durum]}</span>
                         </td>
                         <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1 flex-wrap">
@@ -293,7 +286,7 @@ export default function SiparislerPage() {
                   </div>
                   <div className="flex items-center gap-2 mt-3">
                     <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full">{detay.hafta}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${DURUM_STIL[detay.durum]}`}>{DURUM_LABEL[detay.durum]}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${DURUM_CLASS[detay.durum]}`}>{DURUM_LABEL[detay.durum]}</span>
                   </div>
                 </div>
                 <div className="p-4">

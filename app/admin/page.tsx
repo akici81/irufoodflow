@@ -5,24 +5,11 @@ import Link from "next/link";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { DURUM_PANEL, RENK_MAP, selamlama as selamla } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Siparis = { id: string; ogretmenAdi: string; dersAdi: string; hafta: string; tarih: string; durum: string; genelToplam: number; };
 type Etkinlik = { id: string; hafta: number; gun: string; tarih: string; etkinlik: string; renk: string; };
-
-const DURUM_STIL: Record<string, { bg: string; text: string; label: string }> = {
-  bekliyor:      { bg: "#FEF3C7", text: "#92400E", label: "Bekliyor" },
-  onaylandi:     { bg: "#D1FAE5", text: "#065F46", label: "Onaylandi" },
-  teslim_alindi: { bg: "#DBEAFE", text: "#1E40AF", label: "Teslim" },
-};
-
-const RENK_MAP: Record<string, { bg: string; text: string }> = {
-  kirmizi: { bg: "#FEE2E2", text: "#991B1B" },
-  sari:    { bg: "#FEF3C7", text: "#92400E" },
-  mavi:    { bg: "#DBEAFE", text: "#1D4ED8" },
-  yesil:   { bg: "#D1FAE5", text: "#065F46" },
-  mor:     { bg: "#EDE9FE", text: "#5B21B6" },
-  turuncu: { bg: "#FFEDD5", text: "#9A3412" },
-};
 
 export default function AdminAnaSayfa() {
   const { yetkili, yukleniyor } = useAuth("/admin");
@@ -31,8 +18,7 @@ export default function AdminAnaSayfa() {
   const [sonSiparisler, setSonSiparisler] = useState<Siparis[]>([]);
   const [etkinlikler, setEtkinlikler] = useState<Etkinlik[]>([]);
 
-  const saat = new Date().getHours();
-  const selamlama = saat < 12 ? "Gunaydin" : saat < 18 ? "Iyi gunler" : "Iyi aksamlar";
+  const selamlama = selamla();
 
   useEffect(() => {
     if (!yetkili) return;
@@ -58,7 +44,7 @@ export default function AdminAnaSayfa() {
       .then(({ data }) => setEtkinlikler(data || []));
   }, [yetkili]);
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Yonetim Paneli" subtitle="IRU FoodFlow Sistem Kontrolu">
@@ -103,7 +89,7 @@ export default function AdminAnaSayfa() {
               {sonSiparisler.length === 0 ? (
                 <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henuz siparis yok</p>
               ) : sonSiparisler.map((s) => {
-                const d = DURUM_STIL[s.durum] || DURUM_STIL.bekliyor;
+                const d = DURUM_PANEL[s.durum] || DURUM_PANEL.bekliyor;
                 return (
                   <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">

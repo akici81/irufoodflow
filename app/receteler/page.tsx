@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { HAFTALAR } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Urun = {
   id: string;
@@ -45,7 +47,6 @@ type Ders = {
 };
 
 const KATEGORILER = ["Tümü", "Ana Yemekler", "Çorbalar", "Salatalar", "Tatlılar", "Kahvaltılık", "Aperatif", "Diğer"];
-const HAFTALAR = Array.from({ length: 10 }, (_, i) => `${i + 1}. Hafta`);
 const ZORLUKLAR = ["Kolay", "Orta", "Zor"];
 
 export default function RecetelerPage() {
@@ -363,7 +364,7 @@ export default function RecetelerPage() {
 
   const zorlukRenk: Record<string, string> = { Kolay: "text-emerald-600 bg-emerald-50", Orta: "text-amber-600 bg-amber-50", Zor: "text-red-600 bg-red-50" };
 
-  if (authYukleniyor || !yetkili) return null;
+  if (authYukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Tarif Defterim" subtitle="Kişisel reçete havuzunuz">

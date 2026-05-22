@@ -5,13 +5,13 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { HAFTALAR } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Urun = { id: string; urunAdi: string; marka: string; fiyat: number; olcu: string; kategori: string; stok: number };
 type Ders = { id: string; kod: string; ad: string };
 type HaftaUrun = { urunId: string; urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
 type DersListesi = { dersId: string; dersAdi: string; dersKodu: string; ogretmenAdi: string; olusturmaTarihi: string; haftalar: Record<string, HaftaUrun[]> };
-
-const HAFTALAR = Array.from({ length: 10 }, (_, i) => `${i + 1}. Hafta`);
 
 export default function AlisverisListeleriPage() {
   const { yetkili, yukleniyor } = useAuth("/alisveris-listelerim");
@@ -406,7 +406,7 @@ export default function AlisverisListeleriPage() {
     return HAFTALAR.filter((h) => (dl.haftalar[h] || []).length > 0).length;
   };
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Alisveris Listelerim" subtitle="10 haftalik malzeme talep listesi olusturun">

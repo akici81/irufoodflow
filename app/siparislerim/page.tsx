@@ -4,18 +4,11 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { DURUM_CLASS, DURUM_LABEL } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type SiparisUrun = { urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
 type Siparis = { id: string; ogretmenId: number; dersAdi: string; hafta: string; urunler: SiparisUrun[]; genelToplam: number; tarih: string; durum: string };
-
-const DURUM_STIL: Record<string, string> = {
- bekliyor: "bg-amber-100 text-amber-700 border-amber-200",
- onaylandi: "bg-blue-100 text-blue-700 border-blue-200",
- teslim_alindi: "bg-emerald-100 text-emerald-700 border-emerald-200",
-};
-const DURUM_LABEL: Record<string, string> = {
- bekliyor: "⏳ Bekliyor", onaylandi: " Onaylandı", teslim_alindi: " Teslim Alındı",
-};
 
 export default function SiparislerimPage() {
   const { yetkili, yukleniyor } = useAuth("/siparislerim");
@@ -46,7 +39,7 @@ export default function SiparislerimPage() {
  (filtreHafta === "tumu" || s.hafta === filtreHafta)
  );
 
- if (yukleniyor || !yetkili) return null;
+ if (yukleniyor || !yetkili) return <LoadingSkeleton />;
  return (
  <DashboardLayout title="Siparişlerim" subtitle="Gönderdiğiniz alışveriş listelerini takip edin">
  <div className="max-w-6xl space-y-5">
@@ -96,7 +89,7 @@ export default function SiparislerimPage() {
  {s.genelToplam > 0 ? `₺${s.genelToplam.toLocaleString("tr-TR", { minimumFractionDigits: 2 })}` : "—"}
  </td>
  <td className="px-5 py-4">
- <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${DURUM_STIL[s.durum] ?? DURUM_STIL.bekliyor}`}>
+ <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${DURUM_CLASS[s.durum] ?? DURUM_CLASS.bekliyor}`}>
  {DURUM_LABEL[s.durum] ?? s.durum}
  </span>
  </td>
@@ -122,7 +115,7 @@ export default function SiparislerimPage() {
  <div className="flex justify-between"><span className="text-gray-400">Tarih</span><span className="font-medium text-gray-800">{detay.tarih}</span></div>
  <div className="flex justify-between items-center">
  <span className="text-gray-400">Durum</span>
- <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${DURUM_STIL[detay.durum] ?? DURUM_STIL.bekliyor}`}>
+ <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${DURUM_CLASS[detay.durum] ?? DURUM_CLASS.bekliyor}`}>
  {DURUM_LABEL[detay.durum] ?? detay.durum}
  </span>
  </div>

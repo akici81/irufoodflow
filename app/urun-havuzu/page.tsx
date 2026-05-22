@@ -5,6 +5,8 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { useDebounce } from "../hooks/useDebounce";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 export type Urun = {
   id: string;
@@ -170,16 +172,17 @@ export default function UrunHavuzuPage() {
 
   const kategoriRenk = (kategori: string) => KATEGORI_RENKLERI[kategori] || "bg-gray-100 text-gray-600";
 
+  const gecikmeliArama = useDebounce(aramaMetni, 300);
   const filtrelenmis = (() => {
     const kategoriUygun = (u: Urun) => secilenKategori === "Tümü" || u.kategori === secilenKategori;
     const markaUygun = (u: Urun) => secilenMarka === "Tümü" || u.marka === secilenMarka;
     const temel = urunler.filter(u => kategoriUygun(u) && markaUygun(u));
 
     let sonuc: Urun[];
-    if (!aramaMetni.trim()) {
+    if (!gecikmeliArama.trim()) {
       sonuc = temel;
     } else {
-      const q = aramaMetni.toLowerCase();
+      const q = gecikmeliArama.toLowerCase();
       const exact    = temel.filter(u => (u.urunAdi || "").toLowerCase() === q);
       const starts   = temel.filter(u => (u.urunAdi || "").toLowerCase().startsWith(q) && (u.urunAdi || "").toLowerCase() !== q);
       const contains = temel.filter(u => { const ad = (u.urunAdi || "").toLowerCase(); return ad.includes(q) && !ad.startsWith(q); });
@@ -198,7 +201,7 @@ export default function UrunHavuzuPage() {
     });
   })();
 
-  if (authYukleniyor || !yetkili) return null;
+  if (authYukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Ürün Havuzu">

@@ -5,6 +5,8 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import { DURUM_PANEL, selamlama as selamla } from "@/lib/constants";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type SiparisUrun = { urunId?: string; urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
 type Siparis = { id: string; ogretmenAdi: string; dersAdi: string; hafta: string; market_haftasi?: string | null; urunler: SiparisUrun[]; genelToplam: number; durum: string; tarih: string; tip: string; };
@@ -36,12 +38,7 @@ const formatDepoda = (miktar: number, olcu: string, paketMiktari: number | null,
   return `${stokGoster} (${paketStr})`;
 };
 
-const DURUM_STIL: Record<string, { bg: string; text: string; label: string }> = {
-  bekliyor:      { bg: "#FEF3C7", text: "#92400E", label: "Bekliyor" },
-  onaylandi:     { bg: "#D1FAE5", text: "#065F46", label: "Onaylandi" },
-  teslim_alindi: { bg: "#DBEAFE", text: "#1E40AF", label: "Teslim Alindi" },
-  tatil:         { bg: "#FEE2E2", text: "#991B1B", label: "Tatil" },
-};
+// DURUM_PANEL imported from @/lib/constants (includes tatil, reddedildi)
 
 export default function SatinAlmaPage() {
   const { yetkili, yukleniyor } = useAuth("/satin");
@@ -61,8 +58,7 @@ export default function SatinAlmaPage() {
   const [ogrenciId, setOgrenciId] = useState<number | null>(null);
   const [haftaKaydediliyor, setHaftaKaydediliyor] = useState(false);
 
-  const saat = new Date().getHours();
-  const selamlama = saat < 12 ? "Gunaydin" : saat < 18 ? "Iyi gunler" : "Iyi aksamlar";
+  const selamlama = selamla();
 
   useEffect(() => {
     if (!yetkili) return;
@@ -408,7 +404,7 @@ tr:nth-child(even) td{background:#fafafa}
     XLSX.writeFile(wb, `${ad}.xlsx`);
   };
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Satin Alma Paneli" subtitle="Haftalik urun ozetleri ve stok karsilastirmasi">
@@ -683,7 +679,7 @@ tr:nth-child(even) td{background:#fafafa}
               </div>
               <div className="divide-y divide-zinc-50">
                 {siparisler.slice(0, 10).map((s) => {
-                  const d = DURUM_STIL[s.durum] || DURUM_STIL.bekliyor;
+                  const d = DURUM_PANEL[s.durum] || DURUM_PANEL.bekliyor;
                   return (
                     <div key={s.id} className="px-5 py-3 flex items-center gap-3">
                       <div className="min-w-0 flex-1">
@@ -713,7 +709,7 @@ tr:nth-child(even) td{background:#fafafa}
                         {["bekliyor","onaylandi","teslim_alindi"].map(d => {
                           const count = hSiparisler.filter(s => s.durum === d).length;
                           if (!count) return null;
-                          const ds = DURUM_STIL[d];
+                          const ds = DURUM_PANEL[d];
                           return <span key={d} className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: ds.bg, color: ds.text }}>{count} {ds.label}</span>;
                         })}
                       </div>

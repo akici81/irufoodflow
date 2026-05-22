@@ -12,6 +12,15 @@ type Kullanici = {
   role: string;
 };
 
+const BOLUM_BASKANI_MENU = [
+  { name: "Ana Sayfa", path: "/bolum-baskani" },
+  { name: "Envanter Sayım", path: "/bolum-baskani/envanter-sayim" },
+  { name: "Ürün Havuzu", path: "/urun-havuzu" },
+  { name: "Ders Yönetimi", path: "/dersler" },
+  { name: "Ders Programı", path: "/ders-programi" },
+  { name: "Etkinlik Takvimi", path: "/etkinlik-takvimi" },
+];
+
 const ROLE_MENUS: Record<string, { name: string; path: string }[]> = {
   admin: [
     { name: "Ana Sayfa", path: "/admin" },
@@ -43,22 +52,8 @@ const ROLE_MENUS: Record<string, { name: string; path: string }[]> = {
   ogrenci: [
     { name: "Market Görevi", path: "/market" },
   ],
-  bolum_baskani: [
-    { name: "Ana Sayfa", path: "/bolum-baskani" },
-    { name: "Envanter Sayım", path: "/bolum-baskani/envanter-sayim" },
-    { name: "Ürün Havuzu", path: "/urun-havuzu" },
-    { name: "Ders Yönetimi", path: "/dersler" },
-    { name: "Ders Programı", path: "/ders-programi" },
-    { name: "Etkinlik Takvimi", path: "/etkinlik-takvimi" },
-  ],
-  "bolum-baskani": [
-    { name: "Ana Sayfa", path: "/bolum-baskani" },
-    { name: "Envanter Sayım", path: "/bolum-baskani/envanter-sayim" },
-    { name: "Ürün Havuzu", path: "/urun-havuzu" },
-    { name: "Ders Yönetimi", path: "/dersler" },
-    { name: "Ders Programı", path: "/ders-programi" },
-    { name: "Etkinlik Takvimi", path: "/etkinlik-takvimi" },
-  ],
+  bolum_baskani:  BOLUM_BASKANI_MENU,
+  "bolum-baskani": BOLUM_BASKANI_MENU,
 };
 
 const ROL_LABEL: Record<string, string> = {
@@ -66,8 +61,8 @@ const ROL_LABEL: Record<string, string> = {
   ogretmen: "Öğretim Görevlisi",
   satin_alma: "Satın Alma Birimi",
   stok: "Stok Birimi",
+  bolum_baskani:  "Bölüm Başkanı",
   "bolum-baskani": "Bölüm Başkanı",
-  bolum_baskani: "Bölüm Başkanı",
   ogrenci: "Satınalma Öğrencisi",
 };
 
