@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Satir = {
   id: string;
@@ -136,7 +137,7 @@ export default function DersProgramimPage() {
     setIndiriliyor(false);
   };
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Ders Programim" subtitle="2025-2026 Bahar Donemi">

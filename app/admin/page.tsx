@@ -47,7 +47,7 @@ export default function AdminAnaSayfa() {
   if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
-    <DashboardLayout title="Yonetim Paneli" subtitle="IRU FoodFlow Sistem Kontrolu">
+    <DashboardLayout title="Yönetim Paneli" subtitle="İRÜ FoodFlow Sistem Kontrolü">
       <div className="space-y-6 max-w-6xl">
 
         {/* Karsilama */}
@@ -55,14 +55,14 @@ export default function AdminAnaSayfa() {
           <div className="absolute right-6 top-0 bottom-0 flex items-center opacity-10 text-9xl font-black select-none">IRU</div>
           <p className="text-white/60 text-sm">{selamlama}</p>
           <h2 className="text-2xl font-black mt-0.5">{adSoyad}</h2>
-          <p className="text-white/50 text-xs mt-2">Sistem Yoneticisi &bull; {new Date().toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+          <p className="text-white/50 text-xs mt-2">Sistem Yöneticisi &bull; {new Date().toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
         </div>
 
-        {/* Istatistikler */}
+        {/* İstatistikler */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: "Kullanici",  val: stats.kullanici,  icon: "👤", renk: "#2563EB", bg: "#EFF6FF", link: "/kullanicilar" },
-            { label: "Urun",       val: stats.urun,       icon: "📦", renk: "#EA580C", bg: "#FFF7ED", link: "/urun-havuzu" },
+            { label: "Kullanıcı",  val: stats.kullanici,  icon: "👤", renk: "#2563EB", bg: "#EFF6FF", link: "/kullanicilar" },
+            { label: "Ürün",       val: stats.urun,       icon: "📦", renk: "#EA580C", bg: "#FFF7ED", link: "/urun-havuzu" },
             { label: "Ders",       val: stats.ders,       icon: "📚", renk: "#16A34A", bg: "#F0FDF4", link: "/dersler" },
             { label: "Bekleyen",   val: stats.bekleyen,   icon: "⏳", renk: "#D97706", bg: "#FFFBEB", link: "/siparis-yonetimi" },
             { label: "Onaylanan",  val: stats.onaylanan,  icon: "✅", renk: "#059669", bg: "#ECFDF5", link: "/siparis-yonetimi" },
@@ -79,15 +79,15 @@ export default function AdminAnaSayfa() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Son Siparisler */}
+          {/* Son Siparişler */}
           <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-800">Son Siparisler</h3>
-              <Link href="/siparis-yonetimi" className="text-xs font-semibold text-red-700 hover:underline">Tumunu Gor</Link>
+              <h3 className="font-bold text-zinc-800">Son Siparişler</h3>
+              <Link href="/siparis-yonetimi" className="text-xs font-semibold text-red-700 hover:underline">Tümünü Gör</Link>
             </div>
             <div className="divide-y divide-zinc-50">
               {sonSiparisler.length === 0 ? (
-                <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henuz siparis yok</p>
+                <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henüz sipariş yok</p>
               ) : sonSiparisler.map((s) => {
                 const d = DURUM_PANEL[s.durum] || DURUM_PANEL.bekliyor;
                 return (
@@ -134,14 +134,14 @@ export default function AdminAnaSayfa() {
           </div>
         </div>
 
-        {/* Hizli Erisim */}
+        {/* Hızlı Erişim */}
         <div>
-          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Hizli Erisim</h3>
+          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Hızlı Erişim</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Kullanicilar",    icon: "👥", link: "/kullanicilar",    renk: "#2563EB", bg: "#EFF6FF" },
-              { label: "Urun Havuzu",     icon: "📦", link: "/urun-havuzu",     renk: "#EA580C", bg: "#FFF7ED" },
-              { label: "Ders Programi",   icon: "📋", link: "/ders-programi",   renk: "#059669", bg: "#ECFDF5" },
+              { label: "Kullanıcılar",    icon: "👥", link: "/kullanicilar",    renk: "#2563EB", bg: "#EFF6FF" },
+              { label: "Ürün Havuzu",     icon: "📦", link: "/urun-havuzu",     renk: "#EA580C", bg: "#FFF7ED" },
+              { label: "Ders Programı",   icon: "📋", link: "/ders-programi",   renk: "#059669", bg: "#ECFDF5" },
               { label: "Etkinlik Takvimi",icon: "📅", link: "/etkinlik-takvimi",renk: "#7C3AED", bg: "#F5F3FF" },
             ].map((h) => (
               <Link key={h.link} href={h.link}>

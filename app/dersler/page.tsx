@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Ders = { id: string; kod: string; ad: string; donem: string; aktif: boolean };
 type Kullanici = { id: number; username: string; ad_soyad: string; role: string; dersler: string[] };
@@ -249,7 +250,7 @@ export default function DerslerPage() {
     );
   };
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Ders Yonetimi" subtitle="Dersleri ekleyin ve ogretmenlere atayin">

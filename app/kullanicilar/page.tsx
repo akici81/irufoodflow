@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Kullanici = {
  id: number;
@@ -125,7 +126,7 @@ export default function KullanicilarPage() {
 
  const inputClass = "mt-1 w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500";
 
- if (authYukleniyor || !yetkili) return null;
+ if (authYukleniyor || !yetkili) return <LoadingSkeleton />;
  return (
  <DashboardLayout title="Kullanıcı & Erişim Yönetimi" subtitle="Sistemdeki personel ve kullanıcı bilgilerini yönetin">
  <div className="max-w-5xl space-y-5">

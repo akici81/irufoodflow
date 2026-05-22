@@ -5,6 +5,7 @@ import DashboardLayout from "../../components/DashboardLayout"
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import * as XLSX from "xlsx";
+import LoadingSkeleton from "../../components/LoadingSkeleton";
 
 /* ─── TIPLER ─────────────────────────────── */
 type Demirbas = {
@@ -506,7 +507,7 @@ export default function EnvanterSayimSayfasi() {
     hurda: demirbaslar.filter((d) => d.durum === "hurda").length,
   };
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Envanter Sayim" subtitle="Mutfak Demirbas Yonetimi">

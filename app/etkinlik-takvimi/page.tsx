@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 // ─── Tipler ─────────────────────────────────────────────────────────────────
 type Etkinlik = {
@@ -337,7 +338,7 @@ export default function EtkinlikTakvimiPage() {
   function sonrakiAy() { ay === 11 ? (setYil(y => y + 1), setAy(0))  : setAy(a => a + 1); }
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
-  if (authYukleniyor || !yetkili) return null;
+  if (authYukleniyor || !yetkili) return <LoadingSkeleton />;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

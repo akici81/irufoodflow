@@ -58,7 +58,7 @@ export default function OgretmenAnaSayfa() {
   if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
-    <DashboardLayout title="Ogretmen Paneli" subtitle="Hosgeldiniz">
+    <DashboardLayout title="Öğretmen Paneli" subtitle="Hoş geldiniz">
       <div className="space-y-6 max-w-5xl">
 
         {/* Karsilama */}
@@ -71,12 +71,12 @@ export default function OgretmenAnaSayfa() {
           </p>
         </div>
 
-        {/* Siparis ozeti */}
+        {/* Sipariş özeti */}
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Bekleyen",      val: stats.bekleyen,  renk: "#D97706", bg: "#FFFBEB", icon: "⏳" },
             { label: "Onaylanan",     val: stats.onaylanan, renk: "#059669", bg: "#ECFDF5", icon: "✅" },
-            { label: "Teslim Alindi", val: stats.teslim,    renk: "#2563EB", bg: "#EFF6FF", icon: "📦" },
+            { label: "Teslim Alındı", val: stats.teslim,    renk: "#2563EB", bg: "#EFF6FF", icon: "📦" },
           ].map((k) => (
             <Link href="/alisveris-listelerim" key={k.label}>
               <div className="rounded-2xl border border-zinc-100 p-4 text-center hover:shadow-md transition" style={{ background: k.bg }}>
@@ -98,7 +98,7 @@ export default function OgretmenAnaSayfa() {
             </div>
             <div className="divide-y divide-zinc-50">
               {dersler.length === 0 ? (
-                <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henuz ders atanmamis</p>
+                <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henüz ders atanmamış</p>
               ) : dersler.map((d) => (
                 <div key={d.id} className="px-5 py-3 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold text-white" style={{ background: "#B71C1C" }}>
@@ -141,15 +141,15 @@ export default function OgretmenAnaSayfa() {
           </div>
         </div>
 
-        {/* Son siparisler */}
+        {/* Son siparişler */}
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
-            <h3 className="font-bold text-zinc-800">Son Alisveris Listelerim</h3>
-            <Link href="/alisveris-listelerim" className="text-xs font-semibold text-red-700 hover:underline">Tumunu Gor</Link>
+            <h3 className="font-bold text-zinc-800">Son Alışveriş Listelerim</h3>
+            <Link href="/alisveris-listelerim" className="text-xs font-semibold text-red-700 hover:underline">Tümünü Gör</Link>
           </div>
           <div className="divide-y divide-zinc-50">
             {siparisler.length === 0 ? (
-              <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henuz liste olusturulmamis</p>
+              <p className="px-5 py-8 text-center text-zinc-400 text-sm">Henüz liste oluşturulmamış</p>
             ) : siparisler.map((s) => {
               const d = DURUM_PANEL[s.durum] || DURUM_PANEL.bekliyor;
               return (
@@ -168,16 +168,16 @@ export default function OgretmenAnaSayfa() {
           </div>
         </div>
 
-        {/* Hizli Erisim */}
+        {/* Hızlı Erişim */}
         <div>
-          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Hizli Erisim</h3>
+          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Hızlı Erişim</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { label: "Tarif Defteri",    icon: "📖", link: "/receteler",            renk: "#EA580C", bg: "#FFF7ED" },
-              { label: "Alisveris Listesi", icon: "🛒", link: "/alisveris-listelerim", renk: "#059669", bg: "#ECFDF5" },
-              { label: "Urun Havuzu",       icon: "📦", link: "/urun-havuzu",          renk: "#0284C7", bg: "#F0F9FF" },
-              { label: "Ders Programi",    icon: "📋", link: "/ders-programi",         renk: "#2563EB", bg: "#EFF6FF" },
-              { label: "Etkinlik Takvimi", icon: "📅", link: "/etkinlik-takvimi",      renk: "#7C3AED", bg: "#F5F3FF" },
+              { label: "Tarif Defteri",     icon: "📖", link: "/receteler",            renk: "#EA580C", bg: "#FFF7ED" },
+              { label: "Alışveriş Listesi", icon: "🛒", link: "/alisveris-listelerim", renk: "#059669", bg: "#ECFDF5" },
+              { label: "Ürün Havuzu",       icon: "📦", link: "/urun-havuzu",          renk: "#0284C7", bg: "#F0F9FF" },
+              { label: "Ders Programı",     icon: "📋", link: "/ders-programi",         renk: "#2563EB", bg: "#EFF6FF" },
+              { label: "Etkinlik Takvimi",  icon: "📅", link: "/etkinlik-takvimi",      renk: "#7C3AED", bg: "#F5F3FF" },
             ].map((h) => (
               <Link key={h.link} href={h.link}>
                 <div className="rounded-2xl border border-zinc-100 p-4 text-center hover:shadow-md transition" style={{ background: h.bg }}>

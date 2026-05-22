@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Satir = {
   id?: string;
@@ -358,7 +359,7 @@ export default function DesProgramiPage() {
     setIndiriliyor(false);
   };
 
-  if (authYukleniyor || !yetkili) return null;
+  if (authYukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Ders Programı" subtitle="Program oluştur ve JPEG olarak indir">

@@ -64,7 +64,7 @@ export default function SatinAlmaPage() {
     if (!yetkili) return;
     const id = localStorage.getItem("aktifKullaniciId");
     supabase.from("kullanicilar").select("ad_soyad").eq("id", Number(id)).single()
-      .then(({ data }) => setAdSoyad(data?.ad_soyad || "Satin Alma"));
+      .then(({ data }) => setAdSoyad(data?.ad_soyad || "Satın Alma"));
     fetchData();
   }, [yetkili]);
 
@@ -223,7 +223,7 @@ export default function SatinAlmaPage() {
   }, [siparisler, stokMap, secilenHafta, secilenDers, dususYapildiSet]);
 
   const handleStokDus = async (satir: OzetSatir, idx: number) => {
-    if (!satir.urunId) { bildir("hata", `"${satir.urunAdi}" urun veritabaninda bulunamadi.`); return; }
+    if (!satir.urunId) { bildir("hata", `"${satir.urunAdi}" ürün veritabanında bulunamadı.`); return; }
     // Veritabanına DOKUNMUYORUZ — sadece bu haftanın listesinden düşüyoruz
     // Market listesine de "alındı" olarak işaretle (gözükmesin)
     const urunKey = `${satir.urunAdi}__${satir.marka || ""}`;
@@ -259,9 +259,9 @@ export default function SatinAlmaPage() {
 
   const handleDurumGuncelle = async (sipId: string, yeniDurum: string) => {
     const { error } = await supabase.from("siparisler").update({ durum: yeniDurum }).eq("id", sipId);
-    if (error) { bildir("hata", "Durum guncellenemedi."); return; }
+    if (error) { bildir("hata", "Durum güncellenemedi."); return; }
     setSiparisler(prev => prev.map(s => s.id === sipId ? { ...s, durum: yeniDurum } : s));
-    bildir("basari", "Siparis durumu guncellendi.");
+    bildir("basari", "Sipariş durumu güncellendi.");
   };
 
   const handleMarketHaftasiAyarla = async (sipId: string, hedefHafta: string | null) => {
@@ -294,8 +294,8 @@ export default function SatinAlmaPage() {
       if (!gruplar[kat]) gruplar[kat] = [];
       gruplar[kat].push(u);
     });
-    const baslik = secilenHafta === "tumu" ? "Tum Haftalar" : secilenHafta;
-    const ders = secilenDers === "tumu" ? "Tum Dersler" : secilenDers;
+    const baslik = secilenHafta === "tumu" ? "Tüm Haftalar" : secilenHafta;
+    const ders = secilenDers === "tumu" ? "Tüm Dersler" : secilenDers;
     const tarih = new Date().toLocaleDateString("tr-TR");
     let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#222}
@@ -317,9 +317,9 @@ tr:nth-child(even) td{background:#fafafa}
 .footer{margin-top:20px;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:6px}
 @media print{body{margin:10px}}
 </style></head><body>`;
-    html += `<h1>Alisveris Listesi - ${baslik}</h1><div class="meta">${ders} | ${tarih}</div>`;
+    html += `<h1>Alışveriş Listesi - ${baslik}</h1><div class="meta">${ders} | ${tarih}</div>`;
     Object.entries(gruplar).forEach(([kategori, urunler]) => {
-      html += `<div class="kat">${kategori} (${urunler.length} urun)</div><table><thead><tr><th class="col-urun">Urun</th><th class="col-marka">Marka</th><th class="col-miktar">Miktar</th></tr></thead><tbody>`;
+      html += `<div class="kat">${kategori} (${urunler.length} ürün)</div><table><thead><tr><th class="col-urun">Ürün</th><th class="col-marka">Marka</th><th class="col-miktar">Miktar</th></tr></thead><tbody>`;
       urunler.forEach((u) => {
         const satin = u.satinAlinacak > 0 ? `<span class="s">${u.satinAlinacak} ${u.olcu}</span>` : `<span class="y">—</span>`;
         html += `<tr><td class="col-urun">${u.urunAdi}</td><td class="col-marka">${u.marka || "-"}</td><td class="col-miktar">${satin}</td></tr>`;
@@ -343,8 +343,8 @@ tr:nth-child(even) td{background:#fafafa}
       if (!gruplar[kat]) gruplar[kat] = [];
       gruplar[kat].push(u);
     });
-    const baslik = secilenHafta === "tumu" ? "Tum Haftalar" : secilenHafta;
-    const ders = secilenDers === "tumu" ? "Tum Dersler" : secilenDers;
+    const baslik = secilenHafta === "tumu" ? "Tüm Haftalar" : secilenHafta;
+    const ders = secilenDers === "tumu" ? "Tüm Dersler" : secilenDers;
     const tarih = new Date().toLocaleDateString("tr-TR");
     let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#222}
@@ -368,9 +368,9 @@ tr:nth-child(even) td{background:#fafafa}
 .footer{margin-top:20px;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:6px}
 @media print{body{margin:10px}}
 </style></head><body>`;
-    html += `<h1>Satin Alma Listesi - ${baslik}</h1><div class="meta">${ders} | ${tarih}</div>`;
+    html += `<h1>Satın Alma Listesi - ${baslik}</h1><div class="meta">${ders} | ${tarih}</div>`;
     Object.entries(gruplar).forEach(([kategori, urunler]) => {
-      html += `<div class="kat">${kategori} (${urunler.length} urun)</div><table><thead><tr><th class="col-urun">Urun</th><th class="col-marka">Marka</th><th class="col-miktar">Satin Alinacak</th><th class="col-fiyat">B.Fiyat</th></tr></thead><tbody>`;
+      html += `<div class="kat">${kategori} (${urunler.length} ürün)</div><table><thead><tr><th class="col-urun">Ürün</th><th class="col-marka">Marka</th><th class="col-miktar">Satın Alınacak</th><th class="col-fiyat">B.Fiyat</th></tr></thead><tbody>`;
       urunler.forEach((u) => {
         const satin = u.satinAlinacak > 0 ? `<span class="s">${u.satinAlinacak} ${u.olcu}</span>` : `<span class="y">—</span>`;
         html += `<tr><td class="col-urun">${u.urunAdi}</td><td class="col-marka">${u.marka || "-"}</td><td class="col-miktar">${satin}</td><td class="col-fiyat">${u.birimFiyat > 0 ? u.birimFiyat.toFixed(2) + " TL" : "-"}</td></tr>`;
@@ -391,23 +391,23 @@ tr:nth-child(even) td{background:#fafafa}
   const handleExcel = () => {
     if (satirlar.length === 0) return;
     const rows = satirlar.map((u) => ({
-      "Urun Adi": u.urunAdi, "Marka": u.marka || "-", "Olcu": u.olcu,
-      "Liste Miktari": u.listeMiktar, "Depoda": u.depodaMiktar,
-      "Satin Alinacak": u.satinAlinacak,
+      "Ürün Adı": u.urunAdi, "Marka": u.marka || "-", "Ölçü": u.olcu,
+      "Liste Miktarı": u.listeMiktar, "Depoda": u.depodaMiktar,
+      "Satın Alınacak": u.satinAlinacak,
       "Birim Fiyat": u.birimFiyat || 0,
-      "Satin Alma Tutari": (u.birimFiyat || 0) * u.satinAlinacak,
+      "Satın Alma Tutarı": (u.birimFiyat || 0) * u.satinAlinacak,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Satin Alma");
-    const ad = secilenHafta === "tumu" ? "Satinalma_Tum" : `Satinalma_${secilenHafta.replace(/\s/g, "_")}`;
+    XLSX.utils.book_append_sheet(wb, ws, "Satın Alma");
+    const ad = secilenHafta === "tumu" ? "SatinAlma_Tum" : `SatinAlma_${secilenHafta.replace(/\s/g, "_")}`;
     XLSX.writeFile(wb, `${ad}.xlsx`);
   };
 
   if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
-    <DashboardLayout title="Satin Alma Paneli" subtitle="Haftalik urun ozetleri ve stok karsilastirmasi">
+    <DashboardLayout title="Satın Alma Paneli" subtitle="Haftalık ürün özetleri ve stok karşılaştırması">
       <div className="max-w-6xl space-y-5">
 
         {bildirim && (
@@ -420,7 +420,7 @@ tr:nth-child(even) td{background:#fafafa}
         <div className="flex gap-1 bg-white rounded-xl p-1 border border-zinc-200 shadow-sm w-fit">
           {[
             { key: "dashboard", label: "Dashboard" },
-            { key: "liste", label: "Satin Alma Listesi" },
+            { key: "liste", label: "Satın Alma Listesi" },
             { key: "market", label: "🛒 Market Modu" },
           ].map((s) => (
             <button key={s.key} onClick={() => setAktifSekme(s.key as "dashboard" | "liste" | "market")}
@@ -449,9 +449,9 @@ tr:nth-child(even) td{background:#fafafa}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: "Bekleyen", val: bekleyenler.length, icon: "⏳", renk: "#D97706", bg: "#FFFBEB", alt: "onay bekliyor" },
-                { label: "Onaylanan", val: onaylananlar.length, icon: "✅", renk: "#059669", bg: "#ECFDF5", alt: "siparis" },
-                { label: "Teslim Alindi", val: teslimler.length, icon: "📦", renk: "#2563EB", bg: "#EFF6FF", alt: "tamamlandi" },
-                { label: "Bekleyen Tutar", val: `${bekleyenTutar.toLocaleString("tr-TR", { minimumFractionDigits: 0 })} TL`, icon: "💰", renk: "#7C3AED", bg: "#F5F3FF", alt: "odeme bekliyor" },
+                { label: "Onaylanan", val: onaylananlar.length, icon: "✅", renk: "#059669", bg: "#ECFDF5", alt: "sipariş" },
+                { label: "Teslim Alındı", val: teslimler.length, icon: "📦", renk: "#2563EB", bg: "#EFF6FF", alt: "tamamlandı" },
+                { label: "Bekleyen Tutar", val: `${bekleyenTutar.toLocaleString("tr-TR", { minimumFractionDigits: 0 })} TL`, icon: "💰", renk: "#7C3AED", bg: "#F5F3FF", alt: "ödeme bekliyor" },
               ].map((k) => (
                 <div key={k.label} className="rounded-2xl border border-zinc-100 p-4 text-center shadow-sm" style={{ background: k.bg }}>
                   <div className="text-xl mb-1">{k.icon}</div>
@@ -504,13 +504,13 @@ tr:nth-child(even) td{background:#fafafa}
             {/* Bekleyen siparisler - hafta hafta kutular */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-zinc-800">Bekleyen Siparisler <span className="text-zinc-400 font-normal text-sm">({bekleyenler.length} siparis)</span></h3>
+                <h3 className="font-bold text-zinc-800">Bekleyen Siparişler <span className="text-zinc-400 font-normal text-sm">({bekleyenler.length} sipariş)</span></h3>
                 <button onClick={() => setAktifSekme("liste")} className="text-xs font-semibold hover:underline" style={{ color: "#B71C1C" }}>
-                  Satin Alma Listesi
+                  Satın Alma Listesi
                 </button>
               </div>
               {bekleyenler.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-zinc-200 p-8 text-center text-zinc-400 text-sm">Bekleyen siparis yok</div>
+                <div className="bg-white rounded-2xl border border-zinc-200 p-8 text-center text-zinc-400 text-sm">Bekleyen sipariş yok</div>
               ) : (
                 <div className="space-y-3">
                   {Array.from(new Set(bekleyenler.map(s => s.hafta))).sort().map(hafta => {
@@ -521,7 +521,7 @@ tr:nth-child(even) td{background:#fafafa}
                         <div className="px-5 py-3 border-b border-zinc-100 flex items-center justify-between" style={{ background: "#FFFBEB" }}>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-amber-700 uppercase tracking-wider">{hafta}</span>
-                            <span className="text-xs text-amber-600 font-medium">{haftaBekleyenler.length} siparis</span>
+                            <span className="text-xs text-amber-600 font-medium">{haftaBekleyenler.length} sipariş</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="text-xs font-bold text-amber-700">{haftaToplam.toFixed(2)} TL</span>
@@ -529,7 +529,7 @@ tr:nth-child(even) td{background:#fafafa}
                               onClick={() => haftaBekleyenler.forEach(s => handleDurumGuncelle(s.id, "onaylandi"))}
                               className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                               style={{ background: "#D97706" }}>
-                              Tumunu Onayla
+                              Tümünü Onayla
                             </button>
                           </div>
                         </div>
@@ -577,11 +577,11 @@ tr:nth-child(even) td{background:#fafafa}
               )}
             </div>
 
-            {/* Onaylanan siparisler - Satin Alindi bekliyor */}
+            {/* Onaylanan siparisler - Satın Alındı bekliyor */}
             {onaylananlar.length > 0 && (
               <div>
                 <h3 className="font-bold text-zinc-800 mb-3">
-                  Onaylandi — Satin Alinacak <span className="text-zinc-400 font-normal text-sm">({onaylananlar.length} siparis)</span>
+                  Onaylandı — Satın Alınacak <span className="text-zinc-400 font-normal text-sm">({onaylananlar.length} sipariş)</span>
                 </h3>
                 <div className="space-y-3">
                   {Array.from(new Set(onaylananlar.map(s => s.hafta))).sort().map(hafta => {
@@ -592,7 +592,7 @@ tr:nth-child(even) td{background:#fafafa}
                         <div className="px-5 py-3 border-b border-emerald-100 flex items-center justify-between" style={{ background: "#ECFDF5" }}>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-emerald-700 uppercase tracking-wider">{hafta}</span>
-                            <span className="text-xs text-emerald-600 font-medium">{haftaOnaylanan.length} siparis</span>
+                            <span className="text-xs text-emerald-600 font-medium">{haftaOnaylanan.length} sipariş</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="text-xs font-bold text-emerald-700">{haftaToplam.toFixed(2)} TL</span>
@@ -600,7 +600,7 @@ tr:nth-child(even) td{background:#fafafa}
                               onClick={() => haftaOnaylanan.forEach(s => handleDurumGuncelle(s.id, "teslim_alindi"))}
                               className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                               style={{ background: "#059669" }}>
-                              Tumunu Teslim Et
+                              Tümünü Teslim Et
                             </button>
                           </div>
                         </div>
@@ -620,7 +620,7 @@ tr:nth-child(even) td{background:#fafafa}
                                 <button onClick={() => handleDurumGuncelle(s.id, "teslim_alindi")}
                                   className="text-xs font-semibold px-3 py-1 rounded-lg text-white transition"
                                   style={{ background: "#059669" }}>
-                                  Satin Alindi
+                                  Satın Alındı
                                 </button>
                               </div>
                             </div>
@@ -637,7 +637,7 @@ tr:nth-child(even) td{background:#fafafa}
             {tatiller.length > 0 && (
               <div>
                 <h3 className="font-bold text-zinc-800 mb-3">
-                  Tatil — Atlandı <span className="text-zinc-400 font-normal text-sm">({tatiller.length} siparis)</span>
+                  Tatil — Atlandı <span className="text-zinc-400 font-normal text-sm">({tatiller.length} sipariş)</span>
                 </h3>
                 <div className="space-y-3">
                   {Array.from(new Set(tatiller.map(s => s.hafta))).sort().map(hafta => {
@@ -646,7 +646,7 @@ tr:nth-child(even) td{background:#fafafa}
                       <div key={hafta} className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden">
                         <div className="px-5 py-3 border-b border-red-100 flex items-center gap-2" style={{ background: "#FEF2F2" }}>
                           <span className="text-xs font-black text-red-700 uppercase tracking-wider">{hafta}</span>
-                          <span className="text-xs text-red-500 font-medium">{haftaTatiller.length} siparis</span>
+                          <span className="text-xs text-red-500 font-medium">{haftaTatiller.length} sipariş</span>
                         </div>
                         <div className="divide-y divide-zinc-50">
                           {haftaTatiller.map((s) => (
@@ -675,7 +675,7 @@ tr:nth-child(even) td{background:#fafafa}
             {/* Son siparisler - tum gecmis */}
             <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-zinc-100">
-                <h3 className="font-bold text-zinc-800">Tum Siparisler</h3>
+                <h3 className="font-bold text-zinc-800">Tüm Siparişler</h3>
               </div>
               <div className="divide-y divide-zinc-50">
                 {siparisler.slice(0, 10).map((s) => {
@@ -703,7 +703,7 @@ tr:nth-child(even) td{background:#fafafa}
                   return (
                     <div key={hafta} className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
                       <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{hafta}</p>
-                      <p className="text-xl font-black text-zinc-800 mt-1">{hSiparisler.length} siparis</p>
+                      <p className="text-xl font-black text-zinc-800 mt-1">{hSiparisler.length} sipariş</p>
                       <p className="text-sm font-semibold text-zinc-500">{hTutar.toFixed(2)} TL</p>
                       <div className="flex gap-1 mt-2">
                         {["bekliyor","onaylandi","teslim_alindi"].map(d => {
@@ -743,19 +743,19 @@ tr:nth-child(even) td{background:#fafafa}
             </div>
             <select value={secilenHafta} onChange={(e) => setSecilenHafta(e.target.value)}
                   className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
-                  {haftalar.map((h) => <option key={h} value={h}>{h === "tumu" ? "Tum Haftalar" : h}</option>)}
+                  {haftalar.map((h) => <option key={h} value={h}>{h === "tumu" ? "Tüm Haftalar" : h}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-700 block mb-1">Ders</label>
                 <select value={secilenDers} onChange={(e) => setSecilenDers(e.target.value)}
                   className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 min-w-[220px]">
-                  {dersler.map((d) => <option key={d} value={d}>{d === "tumu" ? "Tum Dersler" : d}</option>)}
+                  {dersler.map((d) => <option key={d} value={d}>{d === "tumu" ? "Tüm Dersler" : d}</option>)}
                 </select>
               </div>
               <div className="ml-auto flex items-end gap-3">
                 <button onClick={handlePdfOgrenci} disabled={satirlar.length === 0}
-                  className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition disabled:opacity-40">Alisveris Listesi</button>
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition disabled:opacity-40">Alışveriş Listesi</button>
                 <button onClick={handlePdf} disabled={satirlar.length === 0}
                   className="bg-red-700 hover:bg-red-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition disabled:opacity-40">PDF</button>
                 <button onClick={handleExcel} disabled={satirlar.length === 0}
@@ -766,11 +766,11 @@ tr:nth-child(even) td{background:#fafafa}
             {satirlar.length > 0 && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-center">
-                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Liste Toplami</p>
+                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Liste Toplamı</p>
                   <p className="text-2xl font-bold text-gray-800">{genelToplam > 0 ? `${genelToplam.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL` : "-"}</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm p-5 text-center">
-                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Satin Alinacak Tutar</p>
+                  <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Satın Alınacak Tutar</p>
                   <p className="text-2xl font-bold text-emerald-700">{satinAlinacakToplam > 0 ? `${satinAlinacakToplam.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL` : "-"}</p>
                 </div>
               </div>
@@ -779,19 +779,19 @@ tr:nth-child(even) td{background:#fafafa}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               {satirlar.length === 0 ? (
                 <div className="py-20 text-center text-gray-400 text-sm">
-                  {siparisler.length === 0 ? "Henuz siparis bulunmuyor." : "Bu filtreye uygun veri yok."}
+                  {siparisler.length === 0 ? "Henüz sipariş bulunmuyor." : "Bu filtreye uygun veri yok."}
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100 text-left">
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">URUN</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">ÜRÜN</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">MARKA</th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">LISTE MIKT.</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">LİSTE MİKT.</th>
                       <th className="px-4 py-3 text-xs font-semibold text-amber-600 uppercase tracking-wider">DEPODA</th>
                       <th className="px-4 py-3 text-xs font-semibold text-emerald-600 uppercase tracking-wider">SATIN ALINACAK</th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">B.FIYAT</th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">ISLEM</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">B.FİYAT</th>
+                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">İŞLEM</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">

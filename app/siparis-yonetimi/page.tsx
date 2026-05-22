@@ -5,6 +5,7 @@ import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type SiparisUrun = { urunId: string; urunAdi: string; marka: string; miktar: number; olcu: string; birimFiyat: number; toplam: number };
 type Siparis = { id: string; ogretmenId: number; ogretmenAdi: string; dersId: string; dersAdi: string; hafta: string; urunler: SiparisUrun[]; genelToplam: number; tarih: string; durum: string };
@@ -118,7 +119,7 @@ export default function SiparisYonetimiPage() {
 
   const gosterilen = sekme === "hepsi" ? siparisler : filtrelenmis;
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <>

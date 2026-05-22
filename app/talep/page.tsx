@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type Urun = { id: string; urunAdi: string; marka: string; fiyat: number; olcu: string; kategori: string };
 type Ders = { id: string; kod: string; ad: string };
@@ -145,7 +146,7 @@ export default function TalepPage() {
     return { ...u, miktar };
   });
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   return (
     <DashboardLayout title="Etkinlik Talebi Oluştur" subtitle="Etkinlik için malzeme talebinizi oluşturun">

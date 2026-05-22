@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 type OzetSatir = {
   urunAdi: string; marka: string; olcu: string;
@@ -205,7 +206,7 @@ export default function MarketPage() {
     }
   };
 
-  if (yukleniyor || !yetkili) return null;
+  if (yukleniyor || !yetkili) return <LoadingSkeleton />;
 
   const toplamUrun = satirlar.length;
   const alinanSayisi = alinanlar.size;
