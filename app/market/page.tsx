@@ -100,7 +100,7 @@ export default function MarketPage() {
     });
 
     const ozet: Record<string, OzetSatir> = {};
-    (siparisler || []).filter((s: any) => s.durum !== "tatil").forEach((s: any) => {
+    (siparisler || []).filter((s: any) => s.durum !== "tatil" && s.durum !== "teslim_alindi").forEach((s: any) => {
       (s.urunler || []).forEach((u: any) => {
         const key = `${u.urunAdi}__${u.marka || ""}__${u.olcu}`;
         const info = (u.urunId ? urunInfoMap[u.urunId] : null);

@@ -179,7 +179,7 @@ export default function SatinAlmaPage() {
   const dersler = ["tumu", ...Array.from(new Set(siparisler.map((s) => s.dersAdi))).sort()];
 
   const filtrelenmis = siparisler.filter((s) =>
-    s.durum !== "tatil" &&
+    s.durum !== "tatil" && s.durum !== "teslim_alindi" &&
     (secilenTip === "tumu" || (s.tip || "haftalik") === secilenTip) &&
     (secilenHafta === "tumu" || s.market_haftasi === secilenHafta || (s.hafta === secilenHafta && !s.market_haftasi)) &&
     (secilenDers === "tumu" || s.dersAdi === secilenDers)
