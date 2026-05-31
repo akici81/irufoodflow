@@ -56,6 +56,7 @@ export default function SatinAlmaPage() {
   const [marketHafta, setMarketHafta] = useState<string>("");
   const [ogrenciHafta, setOgrenciHafta] = useState<string>("");
   const [ogrenciId, setOgrenciId] = useState<number | null>(null);
+  const [onizlemeSiparis, setOnizlemeSiparis] = useState<Siparis | null>(null);
   const [haftaKaydediliyor, setHaftaKaydediliyor] = useState(false);
 
   const selamlama = selamla();
@@ -433,7 +434,8 @@ tr:nth-child(even) td{background:#fafafa}
 
         {/* ═══ DASHBOARD ═══ */}
         {aktifSekme === "dashboard" && (
-          <div className="space-y-5">
+          <div className="flex gap-5 items-start">
+          <div className="flex-1 min-w-0 space-y-5">
 
             {/* Karsilama */}
             <div className="rounded-2xl p-6 text-white relative overflow-hidden" style={{ background: "linear-gradient(135deg, #7F1212 0%, #B71C1C 100%)" }}>
@@ -535,7 +537,7 @@ tr:nth-child(even) td{background:#fafafa}
                         </div>
                         <div className="divide-y divide-zinc-50">
                           {haftaBekleyenler.map((s) => (
-                            <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                            <div key={s.id} onClick={() => setOnizlemeSiparis(onizlemeSiparis?.id === s.id ? null : s)} className={`px-5 py-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${onizlemeSiparis?.id === s.id ? "bg-zinc-50" : "hover:bg-zinc-50/50"}`}>
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-zinc-800 truncate">{s.ogretmenAdi}</p>
                                 <p className="text-xs text-zinc-400 truncate">{s.dersAdi}</p>
@@ -606,7 +608,7 @@ tr:nth-child(even) td{background:#fafafa}
                         </div>
                         <div className="divide-y divide-zinc-50">
                           {haftaOnaylanan.map((s) => (
-                            <div key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                            <div key={s.id} onClick={() => setOnizlemeSiparis(onizlemeSiparis?.id === s.id ? null : s)} className={`px-5 py-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${onizlemeSiparis?.id === s.id ? "bg-zinc-50" : "hover:bg-zinc-50/50"}`}>
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-zinc-800 truncate">{s.ogretmenAdi}</p>
                                 <p className="text-xs text-zinc-400 truncate">{s.dersAdi}</p>
@@ -718,6 +720,55 @@ tr:nth-child(even) td{background:#fafafa}
                 })}
               </div>
             )}
+          </div>
+
+          {/* ═══ ÖNİZLEME PANELİ ═══ */}
+          <div className="w-72 flex-shrink-0 sticky top-4">
+            <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+              {onizlemeSiparis ? (
+                <>
+                  <div className="px-4 py-3 border-b border-zinc-100" style={{ background: "#F9F9F9" }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-zinc-800 truncate">{onizlemeSiparis.ogretmenAdi}</p>
+                        <p className="text-xs text-zinc-400 truncate">{onizlemeSiparis.dersAdi}</p>
+                        <p className="text-xs font-semibold mt-0.5" style={{ color: "#B71C1C" }}>{onizlemeSiparis.hafta}</p>
+                      </div>
+                      <button onClick={() => setOnizlemeSiparis(null)} className="text-zinc-300 hover:text-zinc-500 text-lg leading-none shrink-0">×</button>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-zinc-50 max-h-[60vh] overflow-y-auto">
+                    {(onizlemeSiparis.urunler || []).map((u, i) => (
+                      <div key={i} className="px-4 py-2.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-zinc-800 leading-tight">{u.urunAdi}</p>
+                            {u.marka && <p className="text-xs text-zinc-400">{u.marka}</p>}
+                          </div>
+                          <p className="text-xs font-semibold text-zinc-600 shrink-0">{u.miktar} {u.olcu}</p>
+                        </div>
+                        {u.toplam > 0 && (
+                          <p className="text-xs text-zinc-400 mt-0.5 text-right">{u.toplam.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-3 border-t border-zinc-100 flex justify-between items-center bg-zinc-50">
+                    <span className="text-xs font-semibold text-zinc-500">{(onizlemeSiparis.urunler || []).length} ürün</span>
+                    <span className="text-sm font-bold" style={{ color: "#B71C1C" }}>
+                      {Number(onizlemeSiparis.genelToplam || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="px-4 py-10 text-center text-zinc-400 text-xs">
+                  <p className="text-2xl mb-2">📋</p>
+                  <p>Önizlemek için bir siparişe tıklayın</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           </div>
         )}
 
